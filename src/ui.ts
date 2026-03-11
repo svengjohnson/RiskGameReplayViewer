@@ -666,6 +666,7 @@ export function buildGameInfo(container: HTMLElement, replay: ReplayFile): void 
         <button class="btn-header" id="btn-share">Share</button>
         <button class="btn-header" id="btn-battle-log">Battle Log</button>
         <button class="btn-header" id="btn-upload-another">Upload Another Replay</button>
+        <a class="btn-header" href="https://github.com/svengjohnson/RiskGameRecorder/releases" target="_blank" style="text-decoration: none;">Download Recorder</a>
       </div>
     </div>
   `;
