@@ -1,13 +1,10 @@
 import type { ReplayFile, ReplayState, MapDefinition } from './types';
 import { getPlayerColor } from './colors';
-import { getFlatSnapshots } from './replay';
+import { getFlatSnapshots, computeStateAt } from './replay';
 import type { FogSettings } from './fog';
 import { getHeldContinents } from './continents';
 
 const CARD_LABELS: Record<string, string> = {
-  infantry: 'Inf',
-  cavalry: 'Cav',
-  artillery: 'Art',
   wild: 'Wild',
 };
 
@@ -23,7 +20,8 @@ function cardLabel(card: string): string {
 }
 
 function cardClass(card: string): string {
-  return `card-${card.toLowerCase()}`;
+  if (card.toLowerCase() === 'wild') return 'card-wild';
+  return 'card-badge';
 }
 
 export function buildPlayerPanel(container: HTMLElement, replay: ReplayFile): void {
@@ -62,6 +60,21 @@ export function updatePlayerPanel(container: HTMLElement, state: ReplayState, ma
   const liveCounts: Record<string, { territories: number; units: number; capitals: number }> = {};
   for (const [id] of Object.entries(roundData.players)) {
     liveCounts[id] = { territories: 0, units: 0, capitals: 0 };
+  }
+
+  // Track players killed up to the current snapshot
+  const killedThisRound = new Set<string>();
+  if (state.currentSnapshotIndex >= 0 && roundData.playerTurns) {
+    let flatIdx = 0;
+    for (const [, turn] of Object.entries(roundData.playerTurns)) {
+      for (const snap of turn.snapshots) {
+        if (flatIdx > state.currentSnapshotIndex) break;
+        if (snap.type === 'player_killed') {
+          killedThisRound.add(String(snap.player.id));
+        }
+        flatIdx++;
+      }
+    }
   }
   for (const terr of Object.values(state.mapState)) {
     const key = String(terr.ownedBy);
@@ -132,12 +145,13 @@ export function updatePlayerPanel(container: HTMLElement, state: ReplayState, ma
 
     const statusEl = card.querySelector('.player-status') as HTMLElement;
     const statuses: string[] = [];
-    if (playerState.isDead) statuses.push('DEAD');
+    const isDead = playerState.isDead || killedThisRound.has(id);
+    if (isDead) statuses.push('DEAD');
     if (playerState.isQuit) statuses.push('QUIT');
     if (playerState.isTakenOverByAI) statuses.push('AI');
-    if (playerState.isBotFlagged) statuses.push('BOT');
+    if (playerState.isBotFlagged) statuses.push('FLAGGED');
     statusEl.textContent = statuses.join(' | ');
-    statusEl.className = 'player-status' + (playerState.isDead ? ' dead' : '');
+    statusEl.className = 'player-status' + (isDead ? ' dead' : '');
   }
 }
 
@@ -183,17 +197,16 @@ function computeCardsAtSnapshot(
     // Walk through snapshots up to current position to apply mid-turn card changes
     for (let i = 0; i < turn.snapshots.length && (flatIdx + i) <= snapshotIndex; i++) {
       const snap = turn.snapshots[i];
-      if (snap.type === 'territory') {
-        // Cards received from killing a player
-        if (snap.player_killed?.player?.cards) {
-          cards.push(...snap.player_killed.player.cards);
-        }
-        // Cards traded in (forced or voluntary)
-        if (snap.cards_traded) {
-          for (const traded of snap.cards_traded) {
-            const idx = cards.indexOf(traded);
-            if (idx !== -1) cards.splice(idx, 1);
-          }
+      if (snap.type === 'player_killed') {
+        // Killer receives the killed player's cards
+        cards.push(...snap.player.cards);
+        // Clear killed player's cards
+        result[String(snap.player.id)] = [];
+      } else if (snap.type === 'cards_traded') {
+        // Standalone card trade event
+        for (const traded of snap.cards) {
+          const idx = cards.indexOf(traded);
+          if (idx !== -1) cards.splice(idx, 1);
         }
       }
     }
@@ -407,8 +420,39 @@ export function buildTimeline(
             .map(([name]) => name);
           const changed = Object.keys(snap.snapshot.territories);
           desc = conquered.length ? 'Attacked ' + conquered.join(', ') : 'Placed troops on ' + changed.join(', ');
+        } else if (snap.snapshot.type === 'player_killed') {
+          const killedId = String(snap.snapshot.player.id);
+          const killedName = state.replay.players[killedId]?.name ?? `Player ${killedId}`;
+          desc = 'Killed ' + killedName;
+        } else if (snap.snapshot.type === 'alliance') {
+          // Diff all alliances to find what changed
+          const prevState = computeStateAt(state.replay, state.currentRound, state.currentSnapshotIndex - 1);
+          let foundDesc = '';
+          for (const [pid, newList] of Object.entries(snap.snapshot.alliances)) {
+            const newSet = new Set(newList);
+            const prevSet = new Set(prevState.alliances[pid] ?? []);
+            const added = [...newSet].filter(a => !prevSet.has(a));
+            const removed = [...prevSet].filter(a => !newSet.has(a));
+            if (added.length > 0) {
+              const p1 = state.replay.players[pid]?.name ?? `Player ${pid}`;
+              const p2 = state.replay.players[String(added[0])]?.name ?? `Player ${added[0]}`;
+              foundDesc = `${p1} allied ${p2}`;
+              break;
+            }
+            if (removed.length > 0) {
+              const p1 = state.replay.players[pid]?.name ?? `Player ${pid}`;
+              const p2 = state.replay.players[String(removed[0])]?.name ?? `Player ${removed[0]}`;
+              foundDesc = `Alliance broken: ${p1} and ${p2}`;
+              break;
+            }
+          }
+          desc = foundDesc || 'Alliance change';
+        } else if (snap.snapshot.type === 'cards_traded') {
+          desc = 'Traded cards: ' + snap.snapshot.cards.join(', ');
+        } else if (snap.snapshot.type === 'game_over') {
+          desc = 'Game Over';
         } else {
-          desc = 'Alliance change';
+          desc = String((snap.snapshot as { type: string }).type);
         }
         snapInfo.textContent = `[${time}] ${playerName}: ${desc}`;
       }

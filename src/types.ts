@@ -61,14 +61,16 @@ export interface TerritorySnapshot {
   type: 'territory';
   territories: Record<string, TerritoryState>;
   time: number;
-  player_killed?: {
-    player: {
-      cards: string[];
-      [key: string]: unknown;
-    };
+}
+
+export interface PlayerKilledSnapshot {
+  type: 'player_killed';
+  player: {
+    id: number;
+    cards: string[];
     [key: string]: unknown;
   };
-  cards_traded?: string[];
+  time: number;
 }
 
 export interface AllianceSnapshot {
@@ -77,7 +79,19 @@ export interface AllianceSnapshot {
   time: number;
 }
 
-export type Snapshot = TerritorySnapshot | AllianceSnapshot;
+export interface GameOverSnapshot {
+  type: 'game_over';
+  time: number;
+  [key: string]: unknown;
+}
+
+export interface CardsTradedSnapshot {
+  type: 'cards_traded';
+  cards: string[];
+  time: number;
+}
+
+export type Snapshot = TerritorySnapshot | AllianceSnapshot | GameOverSnapshot | CardsTradedSnapshot | PlayerKilledSnapshot;
 
 export interface PlayerTurn {
   income: number;
