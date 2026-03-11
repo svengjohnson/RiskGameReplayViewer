@@ -120,6 +120,10 @@ export interface MapDefinition {
   viewBox: string;
   territories: Record<string, TerritoryDefinition>;
   continents: Record<string, ContinentDefinition>;
+  /** Extra SVG element IDs that mirror a territory (e.g. wrap-around Alaska) */
+  duplicates?: Record<string, string[]>;
+  /** Whether to render connection dots/lines (default true) */
+  renderConnections?: boolean;
 }
 
 export interface TerritoryDefinition {

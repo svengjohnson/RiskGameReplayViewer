@@ -34,8 +34,8 @@ function findSharedBoundaries(
   el1: SVGGeometryElement,
   el2: SVGGeometryElement,
 ): { x: number; y: number }[] {
-  const pts1 = samplePerimeter(el1, 160);
-  const pts2 = samplePerimeter(el2, 160);
+  const pts1 = samplePerimeter(el1, 200);
+  const pts2 = samplePerimeter(el2, 200);
   const MAX_GAP = 14;
   const MAX_GAP_SQ = MAX_GAP * MAX_GAP;
 
@@ -53,143 +53,64 @@ function findSharedBoundaries(
 
   if (touchPoints.length === 0) return [];
 
-  // Separate touch points into vertical edges (similar X) vs horizontal edges (similar Y)
-  // Then pick the group with more points (the longer shared edge)
-  const xSpread = Math.max(...touchPoints.map(p => p.x)) - Math.min(...touchPoints.map(p => p.x));
-  const ySpread = Math.max(...touchPoints.map(p => p.y)) - Math.min(...touchPoints.map(p => p.y));
+  // Cluster touch points using distance-based grouping to separate
+  // distinct shared edge segments (e.g. L-shaped borders).
+  const CLUSTER_GAP = 40;
+  const CLUSTER_GAP_SQ = CLUSTER_GAP * CLUSTER_GAP;
+  const clusters: { x: number; y: number }[][] = [];
 
-  let filtered: { x: number; y: number }[];
-  if (xSpread < 15 && ySpread < 15) {
-    // Small cluster — just use all points
-    filtered = touchPoints;
-  } else if (ySpread > xSpread) {
-    // Points spread more vertically — this is a vertical shared edge
-    // Filter to points with X near the median X (discard horizontal edge outliers)
-    const xs = touchPoints.map(p => p.x).sort((a, b) => a - b);
-    const medX = xs[Math.floor(xs.length / 2)];
-    filtered = touchPoints.filter(p => Math.abs(p.x - medX) < 15);
-  } else {
-    // Points spread more horizontally — this is a horizontal shared edge
-    const ys = touchPoints.map(p => p.y).sort((a, b) => a - b);
-    const medY = ys[Math.floor(ys.length / 2)];
-    filtered = touchPoints.filter(p => Math.abs(p.y - medY) < 15);
+  for (const p of touchPoints) {
+    let added = false;
+    for (const cluster of clusters) {
+      for (const cp of cluster) {
+        if ((p.x - cp.x) ** 2 + (p.y - cp.y) ** 2 < CLUSTER_GAP_SQ) {
+          cluster.push(p);
+          added = true;
+          break;
+        }
+      }
+      if (added) break;
+    }
+    if (!added) clusters.push([p]);
   }
 
-  if (filtered.length === 0) filtered = touchPoints;
+  // Return one midpoint per cluster (so L-shaped borders get 2 dots)
+  // Filter out tiny clusters (noise) — keep clusters with at least 20% of max cluster size
+  const maxLen = Math.max(...clusters.map(c => c.length));
+  const minLen = Math.max(2, maxLen * 0.2);
 
-  let sx = 0, sy = 0;
-  for (const p of filtered) { sx += p.x; sy += p.y; }
-  return [{ x: sx / filtered.length, y: sy / filtered.length }];
-}
-
-/**
- * Find the midpoint of the facing edge of a shape toward another shape.
- * Picks the edge of bb1 whose minimum distance to bb2 is smallest,
- * then averages the perimeter points on that edge.
- */
-function facingEdgeMidpoint(
-  el: SVGGeometryElement,
-  otherEl: SVGGeometryElement
-): { x: number; y: number } {
-  const bb1 = el.getBBox();
-  const bb2 = otherEl.getBBox();
-
-  // For each side, compute the true 2D distance from the edge midpoint to the
-  // closest point on bb2, considering perpendicular overlap.
-  const r = bb1.x + bb1.width;
-  const b = bb1.y + bb1.height;
-  const r2 = bb2.x + bb2.width;
-  const b2 = bb2.y + bb2.height;
-  const cx2 = bb2.x + bb2.width / 2;
-  const cy2 = bb2.y + bb2.height / 2;
-
-  // Edge midpoints of bb1
-  const edgeMids: { side: string; x: number; y: number }[] = [
-    { side: 'right',  x: r,    y: bb1.y + bb1.height / 2 },
-    { side: 'left',   x: bb1.x, y: bb1.y + bb1.height / 2 },
-    { side: 'bottom', x: bb1.x + bb1.width / 2, y: b },
-    { side: 'top',    x: bb1.x + bb1.width / 2, y: bb1.y },
-  ];
-
-  // Only consider edges where bb2 is on that side
-  const candidates = edgeMids.filter(e => {
-    if (e.side === 'right')  return cx2 > bb1.x + bb1.width / 2;
-    if (e.side === 'left')   return cx2 < bb1.x + bb1.width / 2;
-    if (e.side === 'bottom') return cy2 > bb1.y + bb1.height / 2;
-    return cy2 < bb1.y + bb1.height / 2;
-  });
-
-  // Distance from each edge midpoint to closest point on bb2
-  function distToBox(px: number, py: number): number {
-    const cx = Math.max(bb2.x, Math.min(px, r2));
-    const cy = Math.max(bb2.y, Math.min(py, b2));
-    return Math.sqrt((px - cx) ** 2 + (py - cy) ** 2);
-  }
-
-  // Weight: actual distance + penalty for misalignment with center-to-center direction
-  const cx1 = bb1.x + bb1.width / 2;
-  const cy1 = bb1.y + bb1.height / 2;
-  const dirLen = Math.sqrt((cx2 - cx1) ** 2 + (cy2 - cy1) ** 2);
-  const dirX = dirLen > 0 ? (cx2 - cx1) / dirLen : 0;
-  const dirY = dirLen > 0 ? (cy2 - cy1) / dirLen : 0;
-
-  // Normal vector for each side (pointing outward)
-  const sideNormals: Record<string, { x: number; y: number }> = {
-    right: { x: 1, y: 0 }, left: { x: -1, y: 0 },
-    bottom: { x: 0, y: 1 }, top: { x: 0, y: -1 },
-  };
-
-  function edgeScore(e: { side: string; x: number; y: number }): number {
-    const dist = distToBox(e.x, e.y);
-    // Dot product: how aligned is this side's outward normal with center-to-center direction
-    const n = sideNormals[e.side];
-    const alignment = n.x * dirX + n.y * dirY; // 1 = perfect, -1 = opposite
-    // Penalize poorly aligned edges
-    return dist - alignment * 200;
-  }
-
-  const pool = candidates.length > 0 ? candidates : edgeMids;
-  pool.sort((a, _b) => edgeScore(a) - edgeScore(_b));
-
-  const bestSide = pool[0].side;
-
-  const pts = samplePerimeter(el, 120);
-  const TOLERANCE = 3;
-  let edgePts: { x: number; y: number }[];
-
-  if (bestSide === 'right') {
-    const maxX = Math.max(...pts.map(p => p.x));
-    edgePts = pts.filter(p => p.x > maxX - TOLERANCE);
-  } else if (bestSide === 'left') {
-    const minX = Math.min(...pts.map(p => p.x));
-    edgePts = pts.filter(p => p.x < minX + TOLERANCE);
-  } else if (bestSide === 'bottom') {
-    const maxY = Math.max(...pts.map(p => p.y));
-    edgePts = pts.filter(p => p.y > maxY - TOLERANCE);
-  } else {
-    const minY = Math.min(...pts.map(p => p.y));
-    edgePts = pts.filter(p => p.y < minY + TOLERANCE);
-  }
-
-  if (edgePts.length > 0) {
-    let sx = 0, sy = 0;
-    for (const p of edgePts) { sx += p.x; sy += p.y; }
-    return { x: sx / edgePts.length, y: sy / edgePts.length };
-  }
-
-  const cx = bb1.x + bb1.width / 2;
-  const cy = bb1.y + bb1.height / 2;
-  return { x: cx, y: cy };
+  return clusters
+    .filter(c => c.length >= minLen)
+    .map(cluster => {
+      let sx = 0, sy = 0;
+      for (const p of cluster) { sx += p.x; sy += p.y; }
+      return { x: sx / cluster.length, y: sy / cluster.length };
+    });
 }
 
 function facingPerimeterPair(
   el1: SVGGeometryElement,
   el2: SVGGeometryElement
 ): { p1: { x: number; y: number }; p2: { x: number; y: number } } {
-  return {
-    p1: facingEdgeMidpoint(el1, el2),
-    p2: facingEdgeMidpoint(el2, el1),
-  };
+  // Find the closest pair of perimeter points between the two shapes
+  const pts1 = samplePerimeter(el1, 200);
+  const pts2 = samplePerimeter(el2, 200);
+  let bestDist = Infinity;
+  let bestP1 = pts1[0];
+  let bestP2 = pts2[0];
+
+  for (const p1 of pts1) {
+    for (const p2 of pts2) {
+      const dsq = (p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2;
+      if (dsq < bestDist) {
+        bestDist = dsq;
+        bestP1 = p1;
+        bestP2 = p2;
+      }
+    }
+  }
+
+  return { p1: bestP1, p2: bestP2 };
 }
 
 /**
@@ -297,6 +218,7 @@ export class MapRenderer {
   labelAnchors: Map<string, { x: number; unitY: number; boxPad: number; boxH: number }> = new Map();
   fogOverlays: Map<string, SVGElement> = new Map();
   flashOverlays: Map<string, SVGElement> = new Map();
+  duplicateElements: Map<string, SVGElement[]> = new Map();
   overlayGroup!: SVGGElement;
   fogGroup!: SVGGElement;
   flashGroup!: SVGGElement;
@@ -354,6 +276,24 @@ export class MapRenderer {
       this.territoryElements.set(name, el as SVGElement);
     }
 
+    // Find and style duplicate elements (e.g. wrap-around territories)
+    if (this.mapDef.duplicates) {
+      for (const [name, dupIds] of Object.entries(this.mapDef.duplicates)) {
+        const dups: SVGElement[] = [];
+        for (const dupId of dupIds) {
+          const el = this.svg.getElementById(dupId);
+          if (el) {
+            el.setAttribute('fill', UNOWNED_COLOR);
+            el.setAttribute('stroke', '#1a1208');
+            el.setAttribute('stroke-width', '4');
+            (el as SVGElement).style.cursor = 'pointer';
+            dups.push(el as SVGElement);
+          }
+        }
+        if (dups.length > 0) this.duplicateElements.set(name, dups);
+      }
+    }
+
     // Continent overlay group (below connections)
     this.continentGroup = document.createElementNS(SVG_NS, 'g');
     this.continentGroup.style.pointerEvents = 'none';
@@ -371,24 +311,66 @@ export class MapRenderer {
     // Must be in DOM before getBBox/isPointInFill work
     container.appendChild(this.svg);
 
-    // Draw connections
+    // Collect all SVG elements for a territory (main + duplicates)
+    const getAllElements = (tName: string): SVGGeometryElement[] => {
+      const els: SVGGeometryElement[] = [];
+      const main = this.territoryElements.get(tName) as SVGGeometryElement | undefined;
+      if (main) els.push(main);
+      const dups = this.duplicateElements.get(tName);
+      if (dups) els.push(...(dups as SVGGeometryElement[]));
+      return els;
+    };
+
+    // Draw connections (unless map opts out)
+    if (this.mapDef.renderConnections !== false) {
     const drawnConnections = new Set<string>();
     for (const [name, def] of Object.entries(this.mapDef.territories)) {
       if (blizzardSet.has(name)) continue;
-      const el1 = this.territoryElements.get(name) as SVGGeometryElement | undefined;
-      if (!el1) continue;
+      const els1 = getAllElements(name);
+      if (els1.length === 0) continue;
       for (const neighbor of def.connections) {
         if (blizzardSet.has(neighbor)) continue;
         const key = [name, neighbor].sort().join('|');
         if (drawnConnections.has(key)) continue;
         drawnConnections.add(key);
 
-        const el2 = this.territoryElements.get(neighbor) as SVGGeometryElement | undefined;
-        if (!el2) continue;
+        const els2 = getAllElements(neighbor);
+        if (els2.length === 0) continue;
 
-        // Try to find shared boundary segments
-        let boundaries = findSharedBoundaries(el1, el2);
-        if (boundaries.length === 0) boundaries = findSharedBoundaries(el2, el1);
+        // Try all element pairs and pick the one with shared boundaries,
+        // or the closest pair if none share boundaries
+        let bestBoundaries: { x: number; y: number }[] = [];
+        let bestEl1: SVGGeometryElement = els1[0];
+        let bestEl2: SVGGeometryElement = els2[0];
+        let bestDist = Infinity;
+
+        for (const e1 of els1) {
+          for (const e2 of els2) {
+            let boundaries = findSharedBoundaries(e1, e2);
+            if (boundaries.length === 0) boundaries = findSharedBoundaries(e2, e1);
+            if (boundaries.length > 0 && bestBoundaries.length === 0) {
+              bestBoundaries = boundaries;
+              bestEl1 = e1;
+              bestEl2 = e2;
+            } else if (bestBoundaries.length === 0) {
+              // Compare bounding box center distances to pick closest pair
+              const bb1 = e1.getBBox();
+              const bb2 = e2.getBBox();
+              const dx = (bb1.x + bb1.width / 2) - (bb2.x + bb2.width / 2);
+              const dy = (bb1.y + bb1.height / 2) - (bb2.y + bb2.height / 2);
+              const dist = dx * dx + dy * dy;
+              if (dist < bestDist) {
+                bestDist = dist;
+                bestEl1 = e1;
+                bestEl2 = e2;
+              }
+            }
+          }
+        }
+
+        const el1 = bestEl1;
+        const el2 = bestEl2;
+        const boundaries = bestBoundaries;
 
         if (boundaries.length > 0) {
           for (const mid of boundaries) {
@@ -458,6 +440,7 @@ export class MapRenderer {
         }
       }
     }
+    } // end renderConnections
 
     // Build labels
     for (const name of Object.keys(this.mapDef.territories)) {
@@ -729,8 +712,15 @@ export class MapRenderer {
       const terr = state.mapState[name];
       if (!terr) continue;
 
+      // Helper to sync duplicate elements
+      const syncDuplicates = (fillColor: string) => {
+        const dups = this.duplicateElements.get(name);
+        if (dups) for (const dup of dups) dup.setAttribute('fill', fillColor);
+      };
+
       if (fogged) {
         el.setAttribute('fill', '#4a4035');
+        syncDuplicates('#4a4035');
         const capBox = this.capitalBoxes.get(name);
         if (capBox) capBox.setAttribute('display', 'none');
         const contOverlay = this.continentOverlays.get(name);
@@ -743,6 +733,7 @@ export class MapRenderer {
         const playerInfo = state.replay.players[String(terr.ownedBy)];
         const color = playerInfo ? getPlayerColor(playerInfo.colour) : UNOWNED_COLOR;
         el.setAttribute('fill', color);
+        syncDuplicates(color);
 
         // Capital: player-colored box around troop number
         const capBox = this.capitalBoxes.get(name);
@@ -818,9 +809,14 @@ export class MapRenderer {
     for (const [, el] of this.territoryElements) {
       el.style.filter = '';
     }
+    for (const [, dups] of this.duplicateElements) {
+      for (const dup of dups) dup.style.filter = '';
+    }
     for (const name of names) {
       const el = this.territoryElements.get(name);
       if (el) el.style.filter = 'brightness(1.3)';
+      const dups = this.duplicateElements.get(name);
+      if (dups) for (const dup of dups) dup.style.filter = 'brightness(1.3)';
     }
   }
 }
