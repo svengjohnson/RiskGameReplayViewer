@@ -15,7 +15,7 @@ The SVG file should contain `<path>` elements for each territory. Requirements:
 
 #### Wrap-around territories
 
-If a territory appears on both sides of the map (e.g., Alaska on a world map), include two path elements:
+If a territory appears on both sides of the map (e.g., Alaska on the Classic map), include two path elements:
 - The main one with the standard ID (e.g., `id="Alaska"`)
 - A duplicate with a different ID (e.g., `id="Alaska1"`)
 
