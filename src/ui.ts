@@ -664,9 +664,10 @@ export function buildGameInfo(container: HTMLElement, replay: ReplayFile): void 
       </div>
       <div class="game-info-buttons">
         <button class="btn-header" id="btn-share">Share</button>
+        <a class="btn-header btn-header-link" href="https://github.com/svengjohnson/RiskGameRecorder/releases" target="_blank">Download Recorder</a>
+        <a class="btn-header btn-header-link" href="https://github.com/svengjohnson/RiskGameReplayViewer/blob/main/CONTRIBUTING.md" target="_blank">Map Contributions Welcome!</a>
         <button class="btn-header" id="btn-battle-log">Battle Log</button>
         <button class="btn-header" id="btn-upload-another">Upload Another Replay</button>
-        <a class="btn-header" href="https://github.com/svengjohnson/RiskGameRecorder/releases" target="_blank" style="text-decoration: none;">Download Recorder</a>
       </div>
     </div>
   `;
