@@ -15,7 +15,7 @@ export function getHeldContinents(
   mapDef: MapDefinition
 ): Record<string, HeldContinent[]> {
   const blizzardSet = new Set(state.replay.blizzards);
-  const bonuses = state.replay.gameInfo.continents ?? {};
+  const bonuses = state.replay.continents ?? {};
   const result: Record<string, HeldContinent[]> = {};
 
   for (const [contName, contDef] of Object.entries(mapDef.continents)) {
@@ -45,7 +45,7 @@ export function getHeldContinents(
       if (!result[pid]) result[pid] = [];
       result[pid].push({
         name: contName,
-        bonus: bonuses[contName] ?? contDef.bonus ?? 0,
+        bonus: bonuses[contName] ?? 0,
         territories: contDef.territories,
       });
     }

@@ -49,24 +49,19 @@ export function createAlcatrazMap(): MapDefinition {
     },
     continents: {
       'Second Floor West End': {
-        territories: ['Upper Lavatory', 'Sick Ward', 'Hospital', 'Attendants Room', 'Passage', 'Lecher Room', 'Dispel Room', 'Screen Room'],
-        bonus: 8,
+        territories: ['Upper Lavatory', 'Sick Ward', 'Hospital', 'Attendants Room', 'Passage', 'Lecher Room', 'Dispel Room', 'Screen Room']
       },
       'Stockade': {
-        territories: ['Kitchen Storage', 'Kitchen', 'Pantry', 'Overseers Mess', 'Mess Room', 'Stockade Stairway'],
-        bonus: 6,
+        territories: ['Kitchen Storage', 'Kitchen', 'Pantry', 'Overseers Mess', 'Mess Room', 'Stockade Stairway']
       },
       'Basement': {
-        territories: ['Basement Stairway', 'Workshop', 'Storage', 'Bakery', 'Clothing Room', 'Lavatory'],
-        bonus: 6,
+        territories: ['Basement Stairway', 'Workshop', 'Storage', 'Bakery', 'Clothing Room', 'Lavatory']
       },
       'First Floor': {
-        territories: ['Cell Room Exit Right', 'Cell Room Northwest', 'Cell Room North', 'Cell Room Exit Left', 'Cell Room Center Passage', 'Cell Room South Passage', 'Cell Room South', 'Cell Room Entrance', 'Cell Room Center', 'Hallway', 'Commandants Office', 'Adjutants Office', 'Guards Lavatory', 'Guards Room', 'Main Stairway'],
-        bonus: 12,
+        territories: ['Cell Room Exit Right', 'Cell Room Northwest', 'Cell Room North', 'Cell Room Exit Left', 'Cell Room Center Passage', 'Cell Room South Passage', 'Cell Room South', 'Cell Room Entrance', 'Cell Room Center', 'Hallway', 'Commandants Office', 'Adjutants Office', 'Guards Lavatory', 'Guards Room', 'Main Stairway']
       },
       'Second Floor East End': {
-        territories: ['Second Floor Hall', 'Clerks', 'Telegraph Office', 'Record Room'],
-        bonus: 4,
+        territories: ['Second Floor Hall', 'Clerks', 'Telegraph Office', 'Record Room']
       },
     },
   };

@@ -177,16 +177,33 @@ function computeCardsAtSnapshot(
       break;
     }
 
-    if (snapshotIndex >= turnStart) {
-      // We're at or past this player's turn start — they've traded cards
-      result[pid] = turn.cardsAtTurnStart;
+    // Start with post-trade hand for this player's turn
+    let cards = [...turn.cardsAtTurnStart];
+
+    // Walk through snapshots up to current position to apply mid-turn card changes
+    for (let i = 0; i < turn.snapshots.length && (flatIdx + i) <= snapshotIndex; i++) {
+      const snap = turn.snapshots[i];
+      if (snap.type === 'territory') {
+        // Cards received from killing a player
+        if (snap.player_killed?.player?.cards) {
+          cards.push(...snap.player_killed.player.cards);
+        }
+        // Cards traded in (forced or voluntary)
+        if (snap.cards_traded) {
+          for (const traded of snap.cards_traded) {
+            const idx = cards.indexOf(traded);
+            if (idx !== -1) cards.splice(idx, 1);
+          }
+        }
+      }
     }
 
+    // If past this player's turn entirely, use the definitive after-turn cards
     if (snapshotIndex > turnEnd) {
-      // Past this player's turn — use after-turn cards
-      result[pid] = turn.cardsAfterTurn;
+      cards = [...turn.cardsAfterTurn];
     }
 
+    result[pid] = cards;
     flatIdx += turn.snapshots.length;
   }
 

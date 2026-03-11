@@ -6,6 +6,7 @@ export interface ReplayFile {
   gameInfo: GameInfo;
   players: Record<string, PlayerInfo>;
   blizzards: string[];
+  continents: Record<string, number>;
   roundInfo: Record<string, RoundData>;
 }
 
@@ -21,7 +22,6 @@ export interface GameInfo {
   inactivityBehavior: string;
   portals: string;
   gameDuration: number;
-  continents: Record<string, number>; // continent name → bonus troops
 }
 
 export interface PlayerInfo {
@@ -61,6 +61,14 @@ export interface TerritorySnapshot {
   type: 'territory';
   territories: Record<string, TerritoryState>;
   time: number;
+  player_killed?: {
+    player: {
+      cards: string[];
+      [key: string]: unknown;
+    };
+    [key: string]: unknown;
+  };
+  cards_traded?: string[];
 }
 
 export interface AllianceSnapshot {
@@ -90,7 +98,6 @@ export interface RoundData {
 
 export interface ContinentDefinition {
   territories: string[];
-  bonus: number;
 }
 
 export interface MapDefinition {
