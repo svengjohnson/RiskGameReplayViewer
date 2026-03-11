@@ -663,6 +663,7 @@ export function buildGameInfo(container: HTMLElement, replay: ReplayFile): void 
         </div>
       </div>
       <div class="game-info-buttons">
+        <button class="btn-header" id="btn-share">Share</button>
         <button class="btn-header" id="btn-battle-log">Battle Log</button>
         <button class="btn-header" id="btn-upload-another">Upload Another Replay</button>
       </div>

@@ -10,7 +10,108 @@ import { computeVisibleTerritories } from './fog';
 
 const app = document.getElementById('app')!;
 
-showDropZone();
+// Check for ?gameId= query param to auto-load from server
+const params = new URLSearchParams(window.location.search);
+const gameIdParam = params.get('gameId');
+
+if (gameIdParam) {
+  loadFromServer(gameIdParam);
+} else {
+  showDropZone();
+}
+
+async function loadFromServer(gameId: string): Promise<void> {
+  app.innerHTML = `<div id="drop-zone"><p>Loading replay...</p></div>`;
+  try {
+    const resp = await fetch(`/api/replay/${encodeURIComponent(gameId)}`);
+    if (!resp.ok) throw new Error(`Replay not found (${resp.status})`);
+    const replay: ReplayFile = await resp.json();
+    await initViewer(replay);
+  } catch (err) {
+    app.innerHTML = `
+      <div id="drop-zone">
+        <p style="color: #f08080;">Failed to load replay: ${(err as Error).message}</p>
+        <p style="margin-top: 12px;">You can still load a file manually:</p>
+        <button id="btn-fallback-upload" style="margin-top: 8px;">Browse files</button>
+      </div>
+    `;
+    document.getElementById('btn-fallback-upload')!.addEventListener('click', () => {
+      window.history.replaceState({}, '', '/');
+      showDropZone();
+    });
+  }
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const MAX_UPLOAD_SIZE = 10 * 1024 * 1024; // 10 MB
+
+// Tracks the background upload promise so Share can await it
+let uploadPromise: Promise<string | null> | null = null;
+
+function tryAutoUpload(replay: ReplayFile): void {
+  const gameId = replay?.gameInfo?.id;
+  if (!gameId || !UUID_RE.test(gameId)) return;
+
+  const body = JSON.stringify(replay);
+  if (body.length > MAX_UPLOAD_SIZE) return;
+
+  // Already loaded from server — already uploaded
+  if (window.location.search.includes(`gameId=${gameId}`)) {
+    uploadPromise = Promise.resolve(`/?gameId=${gameId}`);
+    return;
+  }
+
+  uploadPromise = (async () => {
+    try {
+      const resp = await fetch('/api/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+      });
+      if (!resp.ok) return null;
+      const data = await resp.json();
+      // Update URL bar without reload
+      window.history.replaceState({}, '', data.url);
+      return data.url as string;
+    } catch {
+      return null;
+    }
+  })();
+}
+
+async function shareReplay(): Promise<void> {
+  if (!uploadPromise) {
+    showToast('This replay cannot be shared.', true);
+    return;
+  }
+
+  const url = await uploadPromise;
+  if (!url) {
+    showToast('Upload failed — cannot share.', true);
+    return;
+  }
+
+  const fullUrl = `${window.location.origin}${url}`;
+  try {
+    await navigator.clipboard.writeText(fullUrl);
+    showToast('Link copied to clipboard!');
+  } catch {
+    showToast('Could not copy link.', true);
+  }
+}
+
+function showToast(message: string, isError = false): void {
+  const existing = document.getElementById('toast');
+  if (existing) existing.remove();
+
+  const toast = document.createElement('div');
+  toast.id = 'toast';
+  toast.className = `toast ${isError ? 'toast-error' : 'toast-success'}`;
+  toast.textContent = message;
+  document.body.appendChild(toast);
+
+  setTimeout(() => toast.remove(), 3000);
+}
 
 function showDropZone(): void {
   app.innerHTML = `
@@ -56,6 +157,8 @@ async function loadFile(file: File): Promise<void> {
 }
 
 async function initViewer(replay: ReplayFile): Promise<void> {
+  tryAutoUpload(replay);
+
   const mapDef = getMapDefinition(replay.gameInfo.map);
   if (!mapDef) {
     // Unsupported map — offer battle log with a stub map definition
@@ -84,14 +187,22 @@ async function initViewer(replay: ReplayFile): Promise<void> {
           <span>Duration: ${dur}</span>
         </div>
         <p style="margin: 8px 0; color: #f0a050;">Unsupported map — rendering is not available.</p>
+        <p style="margin: 4px 0;">
+          <a href="https://github.com/svengjohnson/RiskGameReplayViewer/blob/main/CONTRIBUTING.md" target="_blank" style="color: #6cb4ee;">You can contribute!</a>
+        </p>
         <div style="display: flex; gap: 10px; margin-top: 12px;">
+          <button id="btn-stub-share">Share</button>
           <button id="btn-stub-log">View Battle Log</button>
           <button id="btn-stub-upload">Upload Another Replay</button>
         </div>
       </div>
     `;
+    document.getElementById('btn-stub-share')!.addEventListener('click', () => shareReplay());
     document.getElementById('btn-stub-log')!.addEventListener('click', () => showBattleLog(replay, stubMap));
-    document.getElementById('btn-stub-upload')!.addEventListener('click', showDropZone);
+    document.getElementById('btn-stub-upload')!.addEventListener('click', () => {
+      window.history.replaceState({}, '', '/');
+      showDropZone();
+    });
     return;
   }
 
@@ -115,7 +226,11 @@ async function initViewer(replay: ReplayFile): Promise<void> {
   const timelineEl = document.getElementById('timeline')!;
 
   buildGameInfo(gameInfoEl, replay);
-  document.getElementById('btn-upload-another')!.addEventListener('click', showDropZone);
+  document.getElementById('btn-share')!.addEventListener('click', () => shareReplay());
+  document.getElementById('btn-upload-another')!.addEventListener('click', () => {
+    window.history.replaceState({}, '', '/');
+    showDropZone();
+  });
   document.getElementById('btn-battle-log')!.addEventListener('click', () => showBattleLog(replay, mapDef));
   buildPlayerPanel(playerPanel, replay);
 

@@ -405,3 +405,33 @@ body {
   white-space: pre-wrap;
   word-break: break-word;
 }
+
+/* Toast notifications */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 10px 24px;
+  border-radius: 6px;
+  font-size: 13px;
+  z-index: 2000;
+  animation: toast-fade 3s ease forwards;
+}
+
+.toast-success {
+  background: #2a5a3a;
+  color: #8fdf8f;
+  border: 1px solid #3a7a4a;
+}
+
+.toast-error {
+  background: #5a2a2a;
+  color: #f08080;
+  border: 1px solid #7a3a3a;
+}
+
+@keyframes toast-fade {
+  0%, 70% { opacity: 1; }
+  100% { opacity: 0; }
+}
