@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "hosted": "npm run build && node server/index.cjs",
+    "hosted": "npm run build && node server/index.cjs --port=80",
     "hosted-dev": "concurrently \"vite\" \"node --watch server/index.cjs\""
   },
   "dependencies": {

@@ -4,7 +4,8 @@ const fs = require('fs');
 const { insertReplay, getReplay } = require('./db.cjs');
 
 const app = express();
-const PORT = process.env.PORT || 3005;
+const portArg = process.argv.find(a => a.startsWith('--port='));
+const PORT = portArg ? Number(portArg.split('=')[1]) : process.env.PORT || 3005;
 
 const uploadsDir = path.join(__dirname, '..', 'uploads');
 fs.mkdirSync(uploadsDir, { recursive: true });
