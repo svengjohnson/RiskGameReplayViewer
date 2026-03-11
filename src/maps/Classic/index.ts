@@ -6,7 +6,8 @@ export function createClassicMap(): MapDefinition {
     name: 'Classic',
     svgUrl,
     viewBox: '0 0 3840 2160',
-    renderConnections: false,
+    renderConnectionDots: true,
+    renderConnectionLines: false,
     duplicates: {
       'Alaska': ['Alaska1'],
     },

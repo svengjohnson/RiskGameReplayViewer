@@ -122,8 +122,10 @@ export interface MapDefinition {
   continents: Record<string, ContinentDefinition>;
   /** Extra SVG element IDs that mirror a territory (e.g. wrap-around Alaska) */
   duplicates?: Record<string, string[]>;
-  /** Whether to render connection dots/lines (default true) */
-  renderConnections?: boolean;
+  /** Whether to render dots on shared borders (default true) */
+  renderConnectionDots?: boolean;
+  /** Whether to render dashed lines for non-adjacent connections (default true) */
+  renderConnectionLines?: boolean;
 }
 
 export interface TerritoryDefinition {

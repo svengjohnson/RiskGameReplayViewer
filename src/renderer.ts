@@ -321,8 +321,11 @@ export class MapRenderer {
       return els;
     };
 
-    // Draw connections (unless map opts out)
-    if (this.mapDef.renderConnections !== false) {
+    // Draw connections
+    const drawDots = this.mapDef.renderConnectionDots !== false;
+    const drawLines = this.mapDef.renderConnectionLines !== false;
+
+    if (drawDots || drawLines) {
     const drawnConnections = new Set<string>();
     for (const [name, def] of Object.entries(this.mapDef.territories)) {
       if (blizzardSet.has(name)) continue;
@@ -353,7 +356,6 @@ export class MapRenderer {
               bestEl1 = e1;
               bestEl2 = e2;
             } else if (bestBoundaries.length === 0) {
-              // Compare bounding box center distances to pick closest pair
               const bb1 = e1.getBBox();
               const bb2 = e2.getBBox();
               const dx = (bb1.x + bb1.width / 2) - (bb2.x + bb2.width / 2);
@@ -373,21 +375,23 @@ export class MapRenderer {
         const boundaries = bestBoundaries;
 
         if (boundaries.length > 0) {
-          for (const mid of boundaries) {
-            const dot = document.createElementNS(SVG_NS, 'circle');
-            dot.setAttribute('cx', String(mid.x));
-            dot.setAttribute('cy', String(mid.y));
-            dot.setAttribute('r', '6');
-            dot.setAttribute('fill', '#ccc');
-            dot.setAttribute('stroke', '#1a1208');
-            dot.setAttribute('stroke-width', '2');
-            connectionsGroup.appendChild(dot);
+          // Adjacent territories — draw dots on shared border
+          if (drawDots) {
+            for (const mid of boundaries) {
+              const dot = document.createElementNS(SVG_NS, 'circle');
+              dot.setAttribute('cx', String(mid.x));
+              dot.setAttribute('cy', String(mid.y));
+              dot.setAttribute('r', '6');
+              dot.setAttribute('fill', '#ccc');
+              dot.setAttribute('stroke', '#1a1208');
+              dot.setAttribute('stroke-width', '2');
+              connectionsGroup.appendChild(dot);
+            }
           }
-        } else {
-          // No shared boundary — draw a line between facing perimeter points
+        } else if (drawLines) {
+          // Non-adjacent — draw dashed line between closest perimeter points
           const { p1, p2 } = facingPerimeterPair(el1, el2);
 
-          // Dots at both endpoints
           for (const ep of [p1, p2]) {
             const dot = document.createElementNS(SVG_NS, 'circle');
             dot.setAttribute('cx', String(ep.x));
@@ -404,7 +408,6 @@ export class MapRenderer {
 
           const path = document.createElementNS(SVG_NS, 'path');
           if (crosses) {
-            // Curve away: offset control point perpendicular to the line
             const mx = (p1.x + p2.x) / 2;
             const my = (p1.y + p2.y) / 2;
             const dx = p2.x - p1.x;
@@ -415,7 +418,6 @@ export class MapRenderer {
             const offset = len * 0.4;
             let cpx = mx + nx * offset;
             let cpy = my + ny * offset;
-            // Pick the side that avoids other territories
             const pt = this.svg.createSVGPoint();
             pt.x = cpx; pt.y = cpy;
             let inTerritory = false;
@@ -440,7 +442,7 @@ export class MapRenderer {
         }
       }
     }
-    } // end renderConnections
+    }
 
     // Build labels
     for (const name of Object.keys(this.mapDef.territories)) {
