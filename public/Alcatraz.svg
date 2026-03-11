@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="3840px" height="2160px" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
+    <rect id="Guards-Lavatory" serif:id="Guards Lavatory" x="3292.1" y="823.353" width="178.805" height="215.255"/>
+    <rect id="Commandants-Office" serif:id="Commandants Office" x="3292.1" y="433.387" width="170.474" height="128.3"/>
+    <rect id="Adjutants-Office" serif:id="Adjutants Office" x="3466.2" y="433.387" width="186.273" height="128.291"/>
+    <path id="Hallway" d="M3471.15,704.838L3471.15,820.539L3292.1,820.539L3292.1,564.504L3459.74,564.504L3459.74,564.492L3468.48,564.504L3471.15,564.504L3471.15,564.508L3653.71,564.765L3653.71,704.838L3471.15,704.838Z"/>
+    <path id="Guards-Room" serif:id="Guards Room" d="M3472.91,870.357L3472.91,706.572L3680.42,706.572L3680.42,821.955L3656.94,821.955L3656.94,870.357L3472.91,870.357Z"/>
+    <path id="Main-Stairway" serif:id="Main Stairway" d="M3656.9,928.466L3680.42,928.466L3680.42,1038.91L3653.1,1038.91L3653.1,1038.89L3472.91,1038.89L3472.91,872.356L3656.9,872.356L3656.9,928.466Z"/>
+    <path id="Cell-Room-North" serif:id="Cell Room North" d="M3061.17,612.247L3061.17,434.116L2371.35,434.116L2371.35,315.164L3145.76,315.164L3145.76,314.909L3277.66,314.909L3277.66,603.702L3277.29,603.702L3277.29,612.247L3061.17,612.247Z"/>
+    <path id="Cell-Room-Entrance" serif:id="Cell Room Entrance" d="M3061.17,861.615L3061.17,714.907L2535.21,714.907L2535.21,615.747L3150.43,615.747L3150.43,615.707L3277.29,615.707L3277.29,861.615L3061.17,861.615Z"/>
+    <path id="Cell-Room-Center" serif:id="Cell Room Center" d="M2371.39,1005.68L2371.39,615.491L2371.35,615.491L2371.35,437.417L2478.09,437.417L2478.09,614.526L2529.46,614.526L2529.46,1005.68L2371.39,1005.68Z"/>
+    <path id="Workshop" d="M781.864,1799.21L781.864,1799.3L643.934,1799.3L643.934,1799.64L480.741,1799.64L480.741,1385.06L643.934,1385.06L643.934,1582.66L850.498,1582.66L850.498,1739.68L850.61,1739.68L850.61,1799.21L781.864,1799.21Z"/>
+    <path id="Kitchen" d="M1068.12,916.146L1068.12,1100.56L828.101,1100.56L828.101,1249.87L573.113,1249.87L573.113,1249.76L459.279,1249.76L459.279,742.055L593.603,742.055L593.603,916.146L1068.12,916.146Z"/>
+    <path id="Cell-Room-South" serif:id="Cell Room South" d="M2532.82,1004.6L2532.82,863.613L3277.29,863.613L3277.29,1013.87L3170.29,1013.87L3170.29,1116.33L3215.82,1116.33L3215.82,1264.31L2576.08,1264.31L2576.08,1116.33L3004.09,1116.33L3004.09,1067.27L3004.82,1067.27L3004.82,1004.6L2532.82,1004.6Z"/>
+    <rect id="Cell-Room-South-Passage" serif:id="Cell Room South Passage" x="1762.52" y="1116.88" width="810.938" height="147.433"/>
+    <rect id="Cell-Room-Center-Passage" serif:id="Cell Room Center Passage" x="1762.44" y="863.613" width="604.951" height="142.066"/>
+    <rect id="Cell-Room-Exit-Left" serif:id="Cell Room Exit Left" x="1604.23" y="793.649" width="152.538" height="470.601"/>
+    <rect id="Cell-Room-Exit-Right" serif:id="Cell Room Exit Right" x="1604.23" y="432.045" width="152.538" height="355.846"/>
+    <rect id="Basement-Stairway" serif:id="Basement Stairway" x="649.83" y="1363.69" width="194.587" height="212.837"/>
+    <rect id="Storage" x="302.923" y="1470.11" width="170.751" height="412.079"/>
+    <rect id="Bakery" x="480.741" y="1801.64" width="552.967" height="143.431"/>
+    <rect id="Clothing-Room" serif:id="Clothing Room" x="851.61" y="1387.56" width="182.098" height="412.079"/>
+    <rect id="Lavatory" x="1034.71" y="1387.56" width="465.463" height="557.51"/>
+    <rect id="Pantry" x="604.909" y="742.055" width="228.358" height="168.474"/>
+    <rect id="Kitchen-Storage" serif:id="Kitchen Storage" x="304.577" y="799.957" width="147.984" height="412.079"/>
+    <rect id="Stockade-Stairway" serif:id="Stockade Stairway" x="833.267" y="1104.14" width="228.358" height="168.474"/>
+    <rect id="Overseers-Mess" serif:id="Overseers Mess" x="839.758" y="742.166" width="228.358" height="168.474"/>
+    <rect id="Mess-Room" serif:id="Mess Room" x="1074.83" y="742.166" width="377.929" height="507.7"/>
+    <rect id="Hospital" x="752.141" y="169.954" width="214.859" height="134.324"/>
+    <rect id="Attendants-Room" serif:id="Attendants Room" x="975.197" y="169.954" width="340.6" height="134.324"/>
+    <rect id="Dispel-Room" serif:id="Dispel Room" x="983.894" y="456.21" width="145.075" height="150.261"/>
+    <rect id="Screen-Room" serif:id="Screen Room" x="1137.67" y="456.21" width="178.131" height="150.261"/>
+    <rect id="Lecher-Room" serif:id="Lecher Room" x="752.141" y="456.21" width="223.056" height="150.261"/>
+    <rect id="Passage" x="751.818" y="309.743" width="563.039" height="143.431"/>
+    <rect id="Upper-Lavatory" serif:id="Upper Lavatory" x="296.67" y="211.845" width="170.751" height="339.225"/>
+    <rect id="Sick-Ward" serif:id="Sick Ward" x="475.296" y="169.954" width="268.648" height="435.757"/>
+    <path id="Cell-Room-Northwest" serif:id="Cell Room Northwest" d="M2365.26,315.372L2365.26,439.828L2365.22,439.828L2365.22,682.9L1762.52,682.9L1762.52,431.071L2198.22,431.071L2198.22,315.372L2365.26,315.372Z"/>
+    <rect id="Second-Floor-Hall" serif:id="Second Floor Hall" x="2699.4" y="1352.21" width="537.643" height="209.818"/>
+    <rect id="Clerks" x="2452.99" y="1352.21" width="240.591" height="481.907"/>
+    <rect id="Telegraph-Office" serif:id="Telegraph Office" x="2699.4" y="1567.4" width="253.811" height="266.716"/>
+    <rect id="Record-Room" serif:id="Record Room" x="2959.04" y="1567.4" width="277.333" height="266.463"/>
+</svg>
