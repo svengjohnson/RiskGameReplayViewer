@@ -3,7 +3,8 @@ import type { ReplayFile, ReplayState } from './types';
 import { createReplayState, goToRound, goToSnapshot, getCurrentSnapshotPlayerId } from './replay';
 import { getMapDefinition } from './maps/index';
 import { MapRenderer } from './renderer';
-import { buildPlayerPanel, updatePlayerPanel, buildTimeline, buildGameInfo, buildFogControls } from './ui';
+import type { MapDefinition } from './types';
+import { buildPlayerPanel, updatePlayerPanel, buildTimeline, buildGameInfo, buildFogControls, showBattleLog } from './ui';
 import type { FogSettings } from './fog';
 import { computeVisibleTerritories } from './fog';
 
@@ -57,7 +58,40 @@ async function loadFile(file: File): Promise<void> {
 async function initViewer(replay: ReplayFile): Promise<void> {
   const mapDef = getMapDefinition(replay.gameInfo.map);
   if (!mapDef) {
-    app.innerHTML = `<div id="drop-zone"><p>Unknown map: ${replay.gameInfo.map}</p><p>Only these maps are supported: Alcatraz</p></div>`;
+    // Unsupported map — offer battle log with a stub map definition
+    const stubMap: MapDefinition = {
+      name: replay.gameInfo.map,
+      svgUrl: '',
+      viewBox: '0 0 1 1',
+      territories: {},
+      continents: {},
+    };
+    const gi = replay.gameInfo;
+    const totalSecs = Math.floor(gi.gameDuration / 1000);
+    const hrs = Math.floor(totalSecs / 3600);
+    const mins = Math.floor((totalSecs % 3600) / 60);
+    const secs = totalSecs % 60;
+    const dur = hrs > 0 ? `${hrs}h ${mins}m ${secs}s` : `${mins}m ${secs}s`;
+    app.innerHTML = `
+      <div id="drop-zone">
+        <h2>${gi.map} - ${gi.gameMode}</h2>
+        <div class="game-details" style="justify-content: center; margin: 8px 0;">
+          <span>ID: ${gi.id}</span>
+          <span>Cards: ${gi.cardType}</span>
+          <span>Dice: ${gi.dice}</span>
+          <span>Fog: ${gi.fog ? 'Yes' : 'No'}</span>
+          <span>Blizzards: ${gi.blizzards ? 'Yes' : 'No'}</span>
+          <span>Duration: ${dur}</span>
+        </div>
+        <p style="margin: 8px 0; color: #f0a050;">Unsupported map — rendering is not available.</p>
+        <div style="display: flex; gap: 10px; margin-top: 12px;">
+          <button id="btn-stub-log">View Battle Log</button>
+          <button id="btn-stub-upload">Upload Another Replay</button>
+        </div>
+      </div>
+    `;
+    document.getElementById('btn-stub-log')!.addEventListener('click', () => showBattleLog(replay, stubMap));
+    document.getElementById('btn-stub-upload')!.addEventListener('click', showDropZone);
     return;
   }
 
@@ -81,6 +115,8 @@ async function initViewer(replay: ReplayFile): Promise<void> {
   const timelineEl = document.getElementById('timeline')!;
 
   buildGameInfo(gameInfoEl, replay);
+  document.getElementById('btn-upload-another')!.addEventListener('click', showDropZone);
+  document.getElementById('btn-battle-log')!.addEventListener('click', () => showBattleLog(replay, mapDef));
   buildPlayerPanel(playerPanel, replay);
 
   const renderer = new MapRenderer(mapDef, replay);
@@ -89,6 +125,7 @@ async function initViewer(replay: ReplayFile): Promise<void> {
   const { updateTimeline } = buildTimeline(
     timelineEl,
     state,
+    mapDef,
     (round) => {
       goToRound(state, round);
       render();

@@ -1,22 +1,109 @@
 import type { ReplayFile, ReplayState, MapDefinition } from './types';
 import { getPlayerColor } from './colors';
-import { getFlatSnapshots, computeStateAt } from './replay';
+import { getFlatSnapshots, computeStateAt, getCurrentSnapshotPlayerId } from './replay';
 import type { FogSettings } from './fog';
 import { getHeldContinents } from './continents';
 
-const CARD_LABELS: Record<string, string> = {
+const DEFAULT_CARD_LABELS: Record<string, string> = {
+  A: 'Infantry',
+  B: 'Cavalry',
+  C: 'Artillery',
   wild: 'Wild',
 };
 
+let activeCardLabels: Record<string, string> = DEFAULT_CARD_LABELS;
+
+function setCardLabels(mapDef: MapDefinition): void {
+  activeCardLabels = { ...DEFAULT_CARD_LABELS, ...mapDef.cardLabels };
+}
+
 function formatGameTime(ms: number): string {
   const totalSecs = Math.floor(ms / 1000);
-  const m = Math.floor(totalSecs / 60);
+  const h = Math.floor(totalSecs / 3600);
+  const m = Math.floor((totalSecs % 3600) / 60);
   const s = totalSecs % 60;
+  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
+const COLOR_DISPLAY_NAMES: Record<string, string> = {
+  royale: 'Purple',
+};
+
+function colorName(colourKey: string): string {
+  const key = colourKey.replace('color_', '');
+  return COLOR_DISPLAY_NAMES[key] ?? key.charAt(0).toUpperCase() + key.slice(1);
+}
+
+function playerLabel(replay: ReplayFile, playerId: string | number): string {
+  const p = replay.players[String(playerId)];
+  if (!p) return `Player ${playerId}`;
+  return `${p.name} (${colorName(p.colour)})`;
+}
+
 function cardLabel(card: string): string {
-  return CARD_LABELS[card.toLowerCase()] ?? card;
+  return activeCardLabels[card] ?? activeCardLabels[card.toLowerCase()] ?? card;
+}
+
+/**
+ * Describe an attack from a territory snapshot entry.
+ * Finds the attacker among neighbors (if map connections available) or
+ * among other changed territories in the same snapshot.
+ */
+function describeAttack(
+  name: string,
+  t: import('./types').TerritoryState,
+  snapTerritories: Record<string, import('./types').TerritoryState>,
+  connections: string[],
+  prevMapState?: Record<string, import('./types').TerritoryState>,
+): string {
+  const capitalTag = t.isCapital ? ' (Capital)' : '';
+  let attackerName: string | null = null;
+  let attackerCapitalTag = '';
+
+  // Strategy 1: check connected neighbors (if connections known)
+  for (const neighbor of connections) {
+    const neighborInSnap = snapTerritories[neighbor];
+    if (neighborInSnap && neighborInSnap.previousUnits != null &&
+        neighborInSnap.units < neighborInSnap.previousUnits &&
+        neighborInSnap.ownedBy === t.ownedBy) {
+      attackerName = neighbor;
+      attackerCapitalTag = neighborInSnap.isCapital ? ' (Capital)' : '';
+      break;
+    }
+    const neighborPrev = prevMapState?.[neighbor];
+    if (!neighborInSnap && neighborPrev && neighborPrev.ownedBy === t.ownedBy) {
+      attackerName = neighbor;
+      attackerCapitalTag = neighborPrev.isCapital ? ' (Capital)' : '';
+    }
+  }
+
+  // Strategy 2: if no connections, search all changed territories in the snapshot
+  if (!attackerName) {
+    for (const [otherName, other] of Object.entries(snapTerritories)) {
+      if (otherName === name) continue;
+      if (other.ownedBy === t.ownedBy &&
+          other.previousUnits != null &&
+          other.units < other.previousUnits) {
+        attackerName = otherName;
+        attackerCapitalTag = other.isCapital ? ' (Capital)' : '';
+        break;
+      }
+    }
+  }
+
+  const defKilled = t.previousUnits ?? 0;
+  const attackerSnap = attackerName ? snapTerritories[attackerName] : undefined;
+  let atkLostStr: string;
+  if (attackerSnap?.previousUnits != null) {
+    const troopsMoved = attackerSnap.previousUnits - attackerSnap.units;
+    atkLostStr = String(troopsMoved - t.units);
+  } else {
+    atkLostStr = '?';
+  }
+
+  const atkLabel = attackerName ? `${attackerName}${attackerCapitalTag}` : '?';
+  return `${atkLabel} attacked ${name}${capitalTag}. Lost: ${atkLostStr}, Killed: ${defKilled}, Remaining: ${t.units}`;
 }
 
 function cardClass(card: string): string {
@@ -32,6 +119,7 @@ export function buildPlayerPanel(container: HTMLElement, replay: ReplayFile): vo
     div.dataset.playerId = id;
     const color = getPlayerColor(player.colour);
     div.style.borderLeftColor = color;
+    div.style.setProperty('--player-color', color);
     div.innerHTML = `
       <div class="player-header">
         <span class="player-name">${player.name}</span>
@@ -153,6 +241,13 @@ export function updatePlayerPanel(container: HTMLElement, state: ReplayState, ma
     statusEl.textContent = statuses.join(' | ');
     statusEl.className = 'player-status' + (isDead ? ' dead' : '');
   }
+
+  // Highlight active player's turn
+  const activePlayerId = getCurrentSnapshotPlayerId(state);
+  for (const card of container.querySelectorAll('.player-card')) {
+    const el = card as HTMLElement;
+    el.classList.toggle('active-turn', el.dataset.playerId === String(activePlayerId));
+  }
 }
 
 /**
@@ -231,9 +326,11 @@ export interface PlaybackControls {
 export function buildTimeline(
   container: HTMLElement,
   state: ReplayState,
+  mapDef: MapDefinition,
   onRoundChange: (round: number) => void,
   onSnapshotChange: (index: number) => void
 ): PlaybackControls {
+  setCardLabels(mapDef);
   container.innerHTML = '';
 
   const totalRounds = Object.keys(state.replay.roundInfo).length;
@@ -416,11 +513,28 @@ export function buildTimeline(
         snapDisplay.textContent = `${state.currentSnapshotIndex + 1} / ${flat.length}`;
         let desc: string;
         if (snap.snapshot.type === 'territory') {
-          const conquered = Object.entries(snap.snapshot.territories)
-            .filter(([, t]) => t.previouslyOwnedBy !== undefined)
-            .map(([name]) => name);
-          const changed = Object.keys(snap.snapshot.territories);
-          desc = conquered.length ? 'Attacked ' + conquered.join(', ') : 'Placed troops on ' + changed.join(', ');
+          const attacks: string[] = [];
+          const placements: string[] = [];
+
+          const prevComputed = computeStateAt(state.replay, state.currentRound, state.currentSnapshotIndex - 1);
+
+          for (const [name, t] of Object.entries(snap.snapshot.territories)) {
+            if (t.previouslyOwnedBy !== undefined) {
+              const connections = mapDef.territories[name]?.connections ?? [];
+              attacks.push(describeAttack(name, t, snap.snapshot.territories, connections, prevComputed.mapState));
+            } else {
+              const prev = t.previousUnits ?? t.units;
+              const placed = t.units - prev;
+              const capTag = t.isCapital ? ' (Capital)' : '';
+              placements.push(`${name}${capTag} ${prev}→${t.units} (${placed >= 0 ? '+' : ''}${placed})`);
+            }
+          }
+
+          if (attacks.length > 0) {
+            desc = attacks.join(' | ');
+          } else {
+            desc = 'Placed troops: ' + placements.join(', ');
+          }
         } else if (snap.snapshot.type === 'player_killed') {
           const killedId = String(snap.snapshot.player.id);
           const killedName = state.replay.players[killedId]?.name ?? `Player ${killedId}`;
@@ -528,19 +642,177 @@ export function buildFogControls(
 
 export function buildGameInfo(container: HTMLElement, replay: ReplayFile): void {
   const gi = replay.gameInfo;
-  const duration = Math.floor(gi.gameDuration / 1000);
-  const mins = Math.floor(duration / 60);
-  const secs = duration % 60;
+  const totalSecs = Math.floor(gi.gameDuration / 1000);
+  const hrs = Math.floor(totalSecs / 3600);
+  const mins = Math.floor((totalSecs % 3600) / 60);
+  const secs = totalSecs % 60;
+  const durationStr = hrs > 0
+    ? `${hrs}h ${mins}m ${secs}s`
+    : `${mins}m ${secs}s`;
   container.innerHTML = `
     <div class="game-info">
-      <h2>${gi.map} - ${gi.gameMode}</h2>
-      <div class="game-details">
-        <span>Cards: ${gi.cardType}</span>
-        <span>Dice: ${gi.dice}</span>
-        <span>Fog: ${gi.fog ? 'Yes' : 'No'}</span>
-        <span>Blizzards: ${gi.blizzards ? 'Yes' : 'No'}</span>
-        <span>Duration: ${mins}m ${secs}s</span>
+      <div class="game-info-left">
+        <h2>${gi.map} - ${gi.gameMode}</h2>
+        <div class="game-details">
+          <span>ID: ${gi.id}</span>
+          <span>Cards: ${gi.cardType}</span>
+          <span>Dice: ${gi.dice}</span>
+          <span>Fog: ${gi.fog ? 'Yes' : 'No'}</span>
+          <span>Blizzards: ${gi.blizzards ? 'Yes' : 'No'}</span>
+          <span>Duration: ${durationStr}</span>
+        </div>
+      </div>
+      <div class="game-info-buttons">
+        <button class="btn-header" id="btn-battle-log">Battle Log</button>
+        <button class="btn-header" id="btn-upload-another">Upload Another Replay</button>
       </div>
     </div>
   `;
+}
+
+export function generateBattleLog(replay: ReplayFile, mapDef: MapDefinition): string {
+  setCardLabels(mapDef);
+  const lines: string[] = [];
+  const totalRnds = Object.keys(replay.roundInfo).length;
+
+  for (let round = 0; round < totalRnds; round++) {
+    const roundData = replay.roundInfo[String(round)];
+    if (!roundData) continue;
+
+    lines.push(`=== ROUND ${round} ===`);
+
+    if (!roundData.playerTurns) continue;
+
+    let flatIdx = 0;
+    let prevMapState = structuredClone(roundData.mapState);
+    let prevAlliances = structuredClone(roundData.alliances);
+
+    let lastTime = '';
+    let isFirstTurn = true;
+
+    for (const [pid, turn] of Object.entries(roundData.playerTurns)) {
+      const pLabel = playerLabel(replay, pid);
+
+      if (!isFirstTurn) lines.push('');
+      isFirstTurn = false;
+
+      // Find the first timestamp in this turn's snapshots
+      const firstSnap = turn.snapshots[0];
+      if (firstSnap) lastTime = formatGameTime(firstSnap.time);
+
+      lines.push(`[${lastTime}] ${pLabel}: Earned ${turn.income} troops`);
+
+      for (const snap of turn.snapshots) {
+        lastTime = formatGameTime(snap.time);
+
+        if (snap.type === 'territory') {
+          const attacks: string[] = [];
+          const placements: string[] = [];
+
+          for (const [name, t] of Object.entries(snap.territories)) {
+            if (t.previouslyOwnedBy !== undefined) {
+              const connections = mapDef.territories[name]?.connections ?? [];
+              attacks.push(describeAttack(name, t, snap.territories, connections, prevMapState));
+            } else {
+              const prev = t.previousUnits ?? t.units;
+              const placed = t.units - prev;
+              const capTag = t.isCapital ? ' (Capital)' : '';
+              placements.push(`${name}${capTag} ${prev}→${t.units} (${placed >= 0 ? '+' : ''}${placed})`);
+            }
+          }
+
+          if (attacks.length > 0) {
+            for (const atk of attacks) lines.push(`[${lastTime}] ${pLabel}: ${atk}`);
+          }
+          if (placements.length > 0) {
+            lines.push(`[${lastTime}] ${pLabel}: Placed troops: ${placements.join(', ')}`);
+          }
+
+          // Apply snapshot to track state
+          for (const [name, t] of Object.entries(snap.territories)) {
+            prevMapState[name] = {
+              ownedBy: t.ownedBy,
+              isCapital: t.isCapital,
+              isPortal: t.isPortal,
+              isActivePortal: t.isActivePortal,
+              units: t.units,
+            };
+          }
+        } else if (snap.type === 'player_killed') {
+          const killedLabel = playerLabel(replay, snap.player.id);
+          lines.push(`[${lastTime}] ${pLabel}: Killed ${killedLabel}`);
+        } else if (snap.type === 'alliance') {
+          for (const [apid, newList] of Object.entries(snap.alliances)) {
+            const newSet = new Set(newList);
+            const prevSet = new Set(prevAlliances[apid] ?? []);
+            const added = [...newSet].filter(a => !prevSet.has(a));
+            const removed = [...prevSet].filter(a => !newSet.has(a));
+            if (added.length > 0) {
+              lines.push(`[${lastTime}] ${playerLabel(replay, apid)} allied ${playerLabel(replay, added[0])}`);
+              break;
+            }
+            if (removed.length > 0) {
+              lines.push(`[${lastTime}] Alliance broken: ${playerLabel(replay, apid)} and ${playerLabel(replay, removed[0])}`);
+              break;
+            }
+          }
+          prevAlliances = structuredClone(snap.alliances);
+        } else if (snap.type === 'cards_traded') {
+          lines.push(`[${lastTime}] ${pLabel}: Traded cards: ${snap.cards.map(c => cardLabel(c)).join(', ')}`);
+        } else if (snap.type === 'game_over') {
+          lines.push(`[${lastTime}] Game Over`);
+        }
+
+        flatIdx++;
+      }
+
+      // Cards earned at end of turn
+      if (turn.cardsAfterTurn.length > turn.cardsAtTurnStart.length) {
+        const startSet = [...turn.cardsAtTurnStart];
+        const earned: string[] = [];
+        for (const c of turn.cardsAfterTurn) {
+          const idx = startSet.indexOf(c);
+          if (idx !== -1) {
+            startSet.splice(idx, 1);
+          } else {
+            earned.push(cardLabel(c));
+          }
+        }
+        if (earned.length > 0) {
+          lines.push(`[${lastTime}] ${pLabel} earned card: ${earned.join(', ')}`);
+        }
+      }
+    }
+
+    lines.push('');
+  }
+
+  return lines.join('\n');
+}
+
+export function showBattleLog(replay: ReplayFile, mapDef: MapDefinition): void {
+  // Remove existing modal if any
+  document.getElementById('battle-log-modal')?.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'battle-log-modal';
+  modal.className = 'battle-log-modal';
+  modal.innerHTML = `
+    <div class="battle-log-content">
+      <div class="battle-log-header">
+        <h3>Battle Log</h3>
+        <button class="btn-header" id="btn-close-log">Close</button>
+      </div>
+      <pre class="battle-log-text"></pre>
+    </div>
+  `;
+  document.body.appendChild(modal);
+
+  const pre = modal.querySelector('.battle-log-text')!;
+  pre.textContent = generateBattleLog(replay, mapDef);
+
+  modal.querySelector('#btn-close-log')!.addEventListener('click', () => modal.remove());
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) modal.remove();
+  });
 }

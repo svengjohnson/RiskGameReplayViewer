@@ -253,7 +253,7 @@ export class MapRenderer {
     bg.setAttribute('y', '-5000');
     bg.setAttribute('width', '15000');
     bg.setAttribute('height', '15000');
-    bg.setAttribute('fill', '#2a2118');
+    bg.setAttribute('fill', '#2b2b2b');
     this.svg.insertBefore(bg, this.svg.firstChild);
 
     // Find and style territory elements
@@ -294,19 +294,18 @@ export class MapRenderer {
       }
     }
 
-    // Continent overlay group (below connections)
+    // Continent overlay group (below labels)
     this.continentGroup = document.createElementNS(SVG_NS, 'g');
     this.continentGroup.style.pointerEvents = 'none';
     this.svg.appendChild(this.continentGroup);
 
-    // Connections group (above continent overlays)
-    const connectionsGroup = document.createElementNS(SVG_NS, 'g');
-    connectionsGroup.style.pointerEvents = 'none';
-    this.svg.appendChild(connectionsGroup);
-
     // Overlay group (labels, units, capitals)
     this.overlayGroup = document.createElementNS(SVG_NS, 'g');
     this.svg.appendChild(this.overlayGroup);
+
+    // Connections group — appended after fog later so it renders above fog
+    const connectionsGroup = document.createElementNS(SVG_NS, 'g');
+    connectionsGroup.style.pointerEvents = 'none';
 
     // Must be in DOM before getBBox/isPointInFill work
     container.appendChild(this.svg);
@@ -578,6 +577,9 @@ export class MapRenderer {
       this.fogOverlays.set(name, fogEl);
     }
 
+    // Connections above fog so they remain visible
+    this.svg.appendChild(connectionsGroup);
+
     // Set up pan & zoom
     this.setupPanZoom(container);
   }
@@ -688,13 +690,16 @@ export class MapRenderer {
     }
 
     // Determine which territories changed in the current snapshot (for flash effect)
-    const changedTerritories = new Map<string, { prevUnits?: number }>();
+    const changedTerritories = new Map<string, { prevUnits?: number; conquered: boolean }>();
     if (state.currentSnapshotIndex >= 0) {
       const flat = getFlatSnapshots(state);
       const snap = flat[state.currentSnapshotIndex];
       if (snap?.snapshot.type === 'territory') {
         for (const [name, t] of Object.entries(snap.snapshot.territories)) {
-          changedTerritories.set(name, { prevUnits: t.previousUnits });
+          changedTerritories.set(name, {
+            prevUnits: t.previousUnits,
+            conquered: t.previouslyOwnedBy !== undefined,
+          });
         }
       }
     }
@@ -764,7 +769,7 @@ export class MapRenderer {
         const unitEl = this.unitElements.get(name);
         if (unitEl) {
           const change = changedTerritories.get(name);
-          if (change?.prevUnits != null && change.prevUnits !== terr.units) {
+          if (change?.prevUnits != null && change.prevUnits !== terr.units && !change.conquered) {
             unitEl.textContent = `${change.prevUnits}→${terr.units}`;
           } else {
             unitEl.textContent = String(terr.units);

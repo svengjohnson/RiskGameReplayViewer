@@ -126,6 +126,8 @@ export interface MapDefinition {
   renderConnectionDots?: boolean;
   /** Whether to render dashed lines for non-adjacent connections (default true) */
   renderConnectionLines?: boolean;
+  /** Map card codes (A, B, C) to display names. Defaults to Classic (Infantry, Cavalry, Artillery). */
+  cardLabels?: Record<string, string>;
 }
 
 export interface TerritoryDefinition {
