@@ -262,7 +262,7 @@ export function buildTimeline(
   controlsRow.innerHTML = `
     <div class="playback-buttons">
       <button id="btn-round-start" title="Jump to round start">⏮</button>
-      <button id="btn-step-back" title="Step back">◀</button>
+      <button id="btn-step-back" title="Step back">◀◀</button>
       <button id="btn-play-pause" title="Play/Pause">▶</button>
       <button id="btn-step-fwd" title="Step forward">▶▶</button>
       <button id="btn-round-end" title="Jump to round end">⏭</button>
@@ -270,11 +270,12 @@ export function buildTimeline(
     <div class="playback-speed">
       <label>Speed:
         <select id="playback-speed">
-          <option value="2000">0.5x</option>
-          <option value="1000" selected>1x</option>
-          <option value="500">2x</option>
-          <option value="250">4x</option>
-          <option value="100">10x</option>
+          <option value="4000">4s</option>
+          <option value="2000">2s</option>
+          <option value="1000" selected>1s</option>
+          <option value="500">0.5s</option>
+          <option value="250">0.25s</option>
+          <option value="100">0.1s</option>
         </select>
       </label>
     </div>

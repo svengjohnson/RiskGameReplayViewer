@@ -294,6 +294,7 @@ export class MapRenderer {
   continentGroup!: SVGGElement;
   unitElements: Map<string, SVGTextElement> = new Map();
   nameLabels: Map<string, SVGTextElement> = new Map();
+  labelAnchors: Map<string, { x: number; unitY: number; boxPad: number; boxH: number }> = new Map();
   fogOverlays: Map<string, SVGElement> = new Map();
   flashOverlays: Map<string, SVGElement> = new Map();
   overlayGroup!: SVGGElement;
@@ -530,6 +531,7 @@ export class MapRenderer {
       capBox.style.pointerEvents = 'none';
       this.overlayGroup.appendChild(capBox);
       this.capitalBoxes.set(name, capBox);
+      this.labelAnchors.set(name, { x: anchor.x, unitY, boxPad, boxH });
 
       // Unit count — vertically centered in the capital box area
       const boxCenterY = unitY - boxPad + boxH / 2;
@@ -701,13 +703,13 @@ export class MapRenderer {
     }
 
     // Determine which territories changed in the current snapshot (for flash effect)
-    const changedTerritories = new Set<string>();
+    const changedTerritories = new Map<string, { prevUnits?: number }>();
     if (state.currentSnapshotIndex >= 0) {
       const flat = getFlatSnapshots(state);
       const snap = flat[state.currentSnapshotIndex];
       if (snap?.snapshot.type === 'territory') {
-        for (const name of Object.keys(snap.snapshot.territories)) {
-          changedTerritories.add(name);
+        for (const [name, t] of Object.entries(snap.snapshot.territories)) {
+          changedTerritories.set(name, { prevUnits: t.previousUnits });
         }
       }
     }
@@ -768,7 +770,23 @@ export class MapRenderer {
 
         const unitEl = this.unitElements.get(name);
         if (unitEl) {
-          unitEl.textContent = String(terr.units);
+          const change = changedTerritories.get(name);
+          if (change?.prevUnits != null && change.prevUnits !== terr.units) {
+            unitEl.textContent = `${change.prevUnits}→${terr.units}`;
+          } else {
+            unitEl.textContent = String(terr.units);
+          }
+
+          // Dynamically resize capital box to fit text
+          if (capBox && terr.isCapital) {
+            const anchor = this.labelAnchors.get(name);
+            if (anchor) {
+              const textLen = unitEl.getComputedTextLength();
+              const boxW = Math.max(UNIT_FONT_SIZE * 1.4, textLen + anchor.boxPad * 6);
+              capBox.setAttribute('x', String(anchor.x - boxW / 2));
+              capBox.setAttribute('width', String(boxW));
+            }
+          }
         }
 
         const nameLabel = this.nameLabels.get(name);

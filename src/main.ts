@@ -125,8 +125,13 @@ async function initViewer(replay: ReplayFile): Promise<void> {
   document.addEventListener('keydown', (e) => {
     if (e.key === ' ') {
       e.preventDefault();
-      const btn = document.getElementById('btn-play-pause');
-      btn?.click();
+      document.getElementById('btn-play-pause')?.click();
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      document.getElementById('btn-step-back')?.click();
+    } else if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      document.getElementById('btn-step-fwd')?.click();
     }
   });
 
