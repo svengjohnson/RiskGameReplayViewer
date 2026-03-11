@@ -1,5 +1,5 @@
 import type { MapDefinition } from '../types';
-import { createAlcatrazMap } from './alcatraz';
+import { createAlcatrazMap } from './Alcatraz';
 
 const maps: Record<string, () => MapDefinition> = {
   Alcatraz: createAlcatrazMap,

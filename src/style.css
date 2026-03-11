@@ -129,6 +129,23 @@ body {
   color: #555;
 }
 
+.player-continents {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.continent-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: #2a3a2a;
+  color: #8fdf8f;
+  border: 1px solid #3a5a3a;
+}
+
 .player-alliances {
   font-size: 11px;
   margin-top: 4px;

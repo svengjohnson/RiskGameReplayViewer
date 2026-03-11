@@ -1,7 +1,8 @@
-import type { ReplayFile, ReplayState } from './types';
+import type { ReplayFile, ReplayState, MapDefinition } from './types';
 import { getPlayerColor } from './colors';
 import { getFlatSnapshots } from './replay';
 import type { FogSettings } from './fog';
+import { getHeldContinents } from './continents';
 
 const CARD_LABELS: Record<string, string> = {
   infantry: 'Inf',
@@ -45,6 +46,7 @@ export function buildPlayerPanel(container: HTMLElement, replay: ReplayFile): vo
         <span class="stat" data-stat="income">Income: -</span>
       </div>
       <div class="player-cards"></div>
+      <div class="player-continents"></div>
       <div class="player-alliances"></div>
       <div class="player-status"></div>
     `;
@@ -52,7 +54,7 @@ export function buildPlayerPanel(container: HTMLElement, replay: ReplayFile): vo
   }
 }
 
-export function updatePlayerPanel(container: HTMLElement, state: ReplayState): void {
+export function updatePlayerPanel(container: HTMLElement, state: ReplayState, mapDef: MapDefinition): void {
   const roundData = state.replay.roundInfo[String(state.currentRound)];
   if (!roundData) return;
 
@@ -99,6 +101,18 @@ export function updatePlayerPanel(container: HTMLElement, state: ReplayState): v
         .join('');
     } else {
       cardsEl.innerHTML = '<span class="no-cards">No cards</span>';
+    }
+
+    // Continents
+    const continentsEl = card.querySelector('.player-continents') as HTMLElement;
+    const heldContinents = getHeldContinents(state, mapDef);
+    const playerContinents = heldContinents[id] ?? [];
+    if (playerContinents.length > 0) {
+      continentsEl.innerHTML = playerContinents
+        .map(c => `<span class="continent-badge">+${c.bonus} ${c.name}</span>`)
+        .join('');
+    } else {
+      continentsEl.innerHTML = '';
     }
 
     // Alliances (from live state)

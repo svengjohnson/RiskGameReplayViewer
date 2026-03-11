@@ -1,9 +1,10 @@
-import type { MapDefinition } from '../types';
+import type { MapDefinition } from '../../types';
+import svgUrl from './Alcatraz.svg?url';
 
 export function createAlcatrazMap(): MapDefinition {
   return {
     name: 'Alcatraz',
-    svgUrl: '/Alcatraz.svg',
+    svgUrl,
     viewBox: '0 0 3840 2160',
     territories: {
       'Upper Lavatory': { connections: ['Sick Ward'] },
@@ -45,6 +46,28 @@ export function createAlcatrazMap(): MapDefinition {
       'Clerks': { connections: ['Second Floor Hall'] },
       'Telegraph Office': { connections: ['Second Floor Hall'] },
       'Record Room': { connections: ['Second Floor Hall'] },
+    },
+    continents: {
+      'Second Floor West End': {
+        territories: ['Upper Lavatory', 'Sick Ward', 'Hospital', 'Attendants Room', 'Passage', 'Lecher Room', 'Dispel Room', 'Screen Room'],
+        bonus: 4,
+      },
+      'Stockade': {
+        territories: ['Kitchen Storage', 'Kitchen', 'Pantry', 'Overseers Mess', 'Mess Room', 'Stockade Stairway'],
+        bonus: 3,
+      },
+      'Basement': {
+        territories: ['Basement Stairway', 'Workshop', 'Storage', 'Bakery', 'Clothing Room', 'Lavatory'],
+        bonus: 3,
+      },
+      'First Floor': {
+        territories: ['Cell Room Exit Right', 'Cell Room Northwest', 'Cell Room North', 'Cell Room Exit Left', 'Cell Room Center Passage', 'Cell Room South Passage', 'Cell Room South', 'Cell Room Entrance', 'Cell Room Center', 'Hallway', 'Commandants Office', 'Adjutants Office', 'Guards Lavatory', 'Guards Room', 'Main Stairway'],
+        bonus: 8,
+      },
+      'Second Floor East End': {
+        territories: ['Second Floor Hall', 'Clerks', 'Telegraph Office', 'Record Room'],
+        bonus: 2,
+      },
     },
   };
 }

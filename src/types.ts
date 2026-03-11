@@ -21,6 +21,7 @@ export interface GameInfo {
   inactivityBehavior: string;
   portals: string;
   gameDuration: number;
+  continents: Record<string, number>; // continent name → bonus troops
 }
 
 export interface PlayerInfo {
@@ -87,11 +88,17 @@ export interface RoundData {
   playerTurns: Record<string, PlayerTurn>;
 }
 
+export interface ContinentDefinition {
+  territories: string[];
+  bonus: number;
+}
+
 export interface MapDefinition {
   name: string;
-  svgUrl: string; // URL to the map SVG background
-  viewBox: string; // SVG viewBox for the map
+  svgUrl: string;
+  viewBox: string;
   territories: Record<string, TerritoryDefinition>;
+  continents: Record<string, ContinentDefinition>;
 }
 
 export interface TerritoryDefinition {

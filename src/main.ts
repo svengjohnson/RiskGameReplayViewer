@@ -63,7 +63,7 @@ async function initViewer(replay: ReplayFile): Promise<void> {
 
   const state: ReplayState = createReplayState(replay);
   const fog: FogSettings = {
-    enabled: false,
+    enabled: !!replay.gameInfo.fog,
     playerId: 1,
     followPlayer: true,
   };
@@ -118,7 +118,7 @@ async function initViewer(replay: ReplayFile): Promise<void> {
       visible = computeVisibleTerritories(state, mapDef!, fog.playerId);
     }
     renderer.update(state, visible);
-    updatePlayerPanel(playerPanel, state);
+    updatePlayerPanel(playerPanel, state, mapDef!);
     updateTimeline();
   }
 
