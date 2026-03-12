@@ -275,15 +275,13 @@ async function initViewer(replay: ReplayFile): Promise<void> {
   }
 
   document.addEventListener('keydown', (e) => {
-    if (e.key === ' ') {
+    if (e.key === ' ' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
       e.preventDefault();
-      document.getElementById('btn-play-pause')?.click();
-    } else if (e.key === 'ArrowLeft') {
-      e.preventDefault();
-      document.getElementById('btn-step-back')?.click();
-    } else if (e.key === 'ArrowRight') {
-      e.preventDefault();
-      document.getElementById('btn-step-fwd')?.click();
+      // Blur sliders so their native arrow handling doesn't also fire
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+      if (e.key === ' ') document.getElementById('btn-play-pause')?.click();
+      else if (e.key === 'ArrowLeft') document.getElementById('btn-step-back')?.click();
+      else document.getElementById('btn-step-fwd')?.click();
     }
   });
 
