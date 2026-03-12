@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
 <svg width="100%" height="100%" viewBox="0 0 3840 2160" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linecap:round;stroke-miterlimit:10;">
-    <rect x="-421.164" y="-199.344" width="4437.79" height="2589.42" style="fill:rgb(43,43,43);"/>
     <rect id="Guards-Lavatory" serif:id="Guards Lavatory" x="3281.34" y="819.708" width="178.805" height="215.255"/>
     <rect id="Commandants-Office" serif:id="Commandants Office" x="3281.34" y="429.742" width="170.474" height="128.3"/>
     <rect id="Adjutants-Office" serif:id="Adjutants Office" x="3455.44" y="429.742" width="186.273" height="128.291"/>

@@ -128,6 +128,8 @@ export interface MapDefinition {
   renderConnectionLines?: boolean;
   /** Map card codes (A, B, C) to display names. Defaults to Classic (Infantry, Cavalry, Artillery). */
   cardLabels?: Record<string, string>;
+  /** URL to a background image for the map */
+  backgroundUrl?: string;
 }
 
 export interface TerritoryDefinition {

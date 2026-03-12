@@ -247,14 +247,33 @@ export class MapRenderer {
     this.svg.removeAttribute('width');
     this.svg.removeAttribute('height');
 
-    // Dark background
-    const bg = document.createElementNS(SVG_NS, 'rect');
-    bg.setAttribute('x', '-5000');
-    bg.setAttribute('y', '-5000');
-    bg.setAttribute('width', '15000');
-    bg.setAttribute('height', '15000');
-    bg.setAttribute('fill', '#2b2b2b');
-    this.svg.insertBefore(bg, this.svg.firstChild);
+    // Background: image if provided, otherwise flat color
+    if (this.mapDef.backgroundUrl) {
+      // Remove any existing background rects from the SVG source (no id, typically first rect)
+      const firstChildren = Array.from(this.svg.children);
+      for (const child of firstChildren) {
+        if (child.tagName === 'rect' && !child.id) {
+          child.remove();
+        }
+      }
+      const [, , vbW, vbH] = this.mapDef.viewBox.split(' ').map(Number);
+      const bgImg = document.createElementNS(SVG_NS, 'image');
+      bgImg.setAttribute('href', this.mapDef.backgroundUrl);
+      bgImg.setAttribute('x', '0');
+      bgImg.setAttribute('y', '0');
+      bgImg.setAttribute('width', String(vbW));
+      bgImg.setAttribute('height', String(vbH));
+      bgImg.setAttribute('preserveAspectRatio', 'xMidYMid slice');
+      this.svg.insertBefore(bgImg, this.svg.firstChild);
+    } else {
+      const bg = document.createElementNS(SVG_NS, 'rect');
+      bg.setAttribute('x', '-5000');
+      bg.setAttribute('y', '-5000');
+      bg.setAttribute('width', '15000');
+      bg.setAttribute('height', '15000');
+      bg.setAttribute('fill', '#2b2b2b');
+      this.svg.insertBefore(bg, this.svg.firstChild);
+    }
 
     // Find and style territory elements
     const blizzardSet = new Set(this.replay.blizzards);
@@ -636,7 +655,7 @@ export class MapRenderer {
       for (const child of Array.from(parent.children)) {
         if (knownElements.has(child) || ourGroups.has(child)) continue;
         const tag = child.tagName.toLowerCase();
-        if (tag === 'defs' || tag === 'rect') continue; // keep defs and background rects in place
+        if (tag === 'defs' || tag === 'rect' || tag === 'image') continue; // keep defs, background rects/images in place
         decorations.push(child);
       }
     };
