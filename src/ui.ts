@@ -128,7 +128,7 @@ function describeFailedAttacks(
     if (t.ownedBy === activePlayerId) {
       const capTag = t.isCapital ? ' (Capital)' : '';
       const lost = t.previousUnits! - t.units;
-      return [`${name}${capTag} attacked ? (failed). Lost: ${lost}, Killed: 0, Remaining: ${t.units}`];
+      return [`${name}${capTag} (${t.previousUnits}) attacked ? (failed). Lost: ${lost}, Killed: 0, Remaining: ${t.units}`];
     }
     return [];
   }
@@ -145,7 +145,7 @@ function describeFailedAttacks(
   const defCapTag = def.isCapital ? ' (Capital)' : '';
   const atkLost = atk.previousUnits! - atk.units;
   const defKilled = def.previousUnits! - def.units;
-  return [`${atkName}${atkCapTag} attacked ${defName}${defCapTag} (failed). Lost: ${atkLost}, Killed: ${defKilled}, Remaining: ${atk.units}`];
+  return [`${atkName}${atkCapTag} (${atk.previousUnits}) attacked ${defName}${defCapTag} (${def.previousUnits}) (failed). Lost: ${atkLost}, Killed: ${defKilled}, Remaining: ${atk.units}`];
 }
 
 function cardClass(card: string): string {
