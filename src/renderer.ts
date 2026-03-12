@@ -577,6 +577,26 @@ export class MapRenderer {
       this.fogOverlays.set(name, fogEl);
     }
 
+    // Move SVG-embedded non-territory elements (e.g. manually-added connection dots) above fog.
+    // Collect all known territory/blizzard elements so we can identify decorations.
+    const knownElements = new Set<Element>();
+    for (const el of this.territoryElements.values()) knownElements.add(el);
+    for (const dups of this.duplicateElements.values()) {
+      for (const el of dups) knownElements.add(el);
+    }
+    const ourGroups = new Set<Element>([this.overlayGroup, this.continentGroup, this.flashGroup, this.fogGroup, connectionsGroup]);
+    const decorations: Element[] = [];
+    const collectDecorations = (parent: Element) => {
+      for (const child of Array.from(parent.children)) {
+        if (knownElements.has(child) || ourGroups.has(child)) continue;
+        const tag = child.tagName.toLowerCase();
+        if (tag === 'defs' || tag === 'rect') continue; // keep defs and background rects in place
+        decorations.push(child);
+      }
+    };
+    collectDecorations(this.svg);
+    for (const el of decorations) this.svg.appendChild(el);
+
     // Connections above fog so they remain visible
     this.svg.appendChild(connectionsGroup);
 

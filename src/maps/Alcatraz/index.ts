@@ -6,7 +6,7 @@ export function createAlcatrazMap(): MapDefinition {
     name: 'Alcatraz',
     svgUrl,
     viewBox: '0 0 3840 2160',
-    renderConnectionDots: true,
+    renderConnectionDots: false,
     renderConnectionLines: false,
     cardLabels: { A: 'Soldier', B: 'Car', C: 'Truck' },
     territories: {
