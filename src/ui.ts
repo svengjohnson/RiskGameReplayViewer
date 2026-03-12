@@ -108,77 +108,44 @@ function describeAttack(
 
 /**
  * Detect and describe a failed attack from a territory snapshot.
+ * The active player's territory is the attacker; the other owner's territory is the defender.
  * Cases:
- * 1) Single territory that lost troops (no ownership change) — attacker lost troops, defender survived
- * 2) 2+ territories from different owners, both losing troops
- * Returns an array of attack descriptions, or empty if not a failed attack.
+ * 1) Single territory that lost troops — attacker lost troops, defender not in snapshot
+ * 2) 2 territories from different owners, both losing troops
  */
 function describeFailedAttacks(
   territories: Record<string, import('./types').TerritoryState>,
-  connections: (name: string) => string[],
+  activePlayerId: number,
 ): string[] {
   const entries = Object.entries(territories);
 
+  // All entries must have lost troops and have no ownership change
+  const losers = entries.filter(([, t]) => t.previousUnits != null && t.units < t.previousUnits);
+
   // Case 1: single territory lost troops — attacker's territory, defender unknown
-  if (entries.length === 1) {
-    const [name, t] = entries[0];
-    if (t.previousUnits != null && t.units < t.previousUnits) {
+  if (entries.length === 1 && losers.length === 1) {
+    const [name, t] = losers[0];
+    if (t.ownedBy === activePlayerId) {
       const capTag = t.isCapital ? ' (Capital)' : '';
-      const lost = t.previousUnits - t.units;
+      const lost = t.previousUnits! - t.units;
       return [`${name}${capTag} attacked ? (failed). Lost: ${lost}, Killed: 0, Remaining: ${t.units}`];
     }
     return [];
   }
 
-  // Group territories by owner, only those that lost troops
-  const losers = entries.filter(([, t]) => t.previousUnits != null && t.units < t.previousUnits);
+  // Case 2: need attacker (active player) and defender (different owner)
   if (losers.length < 2) return [];
+  const attacker = losers.find(([, t]) => t.ownedBy === activePlayerId);
+  const defender = losers.find(([, t]) => t.ownedBy !== activePlayerId);
+  if (!attacker || !defender) return [];
 
-  // Check that there are at least 2 different owners among losers
-  const owners = new Set(losers.map(([, t]) => t.ownedBy));
-  if (owners.size < 2) return [];
-
-  // Find attacker-defender pairs: attacker is the snapshot's active player (the one whose turn it is).
-  // The attacker's territory loses troops AND belongs to a different owner than the defender.
-  const results: string[] = [];
-  const usedDefenders = new Set<string>();
-
-  for (const [atkName, atk] of losers) {
-    // Find a defender: different owner, also lost troops, connected or in same snapshot
-    const conns = new Set(connections(atkName));
-    for (const [defName, def] of losers) {
-      if (defName === atkName || def.ownedBy === atk.ownedBy || usedDefenders.has(defName)) continue;
-      // Prefer connected, but accept any pair
-      if (conns.size > 0 && !conns.has(defName)) continue;
-
-      usedDefenders.add(defName);
-      const atkCapTag = atk.isCapital ? ' (Capital)' : '';
-      const defCapTag = def.isCapital ? ' (Capital)' : '';
-      const atkLost = (atk.previousUnits ?? atk.units) - atk.units;
-      const defKilled = (def.previousUnits ?? def.units) - def.units;
-      results.push(`${atkName}${atkCapTag} attacked ${defName}${defCapTag} (failed). Lost: ${atkLost}, Killed: ${defKilled}, Remaining: ${atk.units}`);
-      break;
-    }
-  }
-
-  // If connections were too strict and we didn't pair, retry without connection filter
-  if (results.length === 0) {
-    usedDefenders.clear();
-    for (const [atkName, atk] of losers) {
-      for (const [defName, def] of losers) {
-        if (defName === atkName || def.ownedBy === atk.ownedBy || usedDefenders.has(defName)) continue;
-        usedDefenders.add(defName);
-        const atkCapTag = atk.isCapital ? ' (Capital)' : '';
-        const defCapTag = def.isCapital ? ' (Capital)' : '';
-        const atkLost = (atk.previousUnits ?? atk.units) - atk.units;
-        const defKilled = (def.previousUnits ?? def.units) - def.units;
-        results.push(`${atkName}${atkCapTag} attacked ${defName}${defCapTag} (failed). Lost: ${atkLost}, Killed: ${defKilled}, Remaining: ${atk.units}`);
-        break;
-      }
-    }
-  }
-
-  return results;
+  const [atkName, atk] = attacker;
+  const [defName, def] = defender;
+  const atkCapTag = atk.isCapital ? ' (Capital)' : '';
+  const defCapTag = def.isCapital ? ' (Capital)' : '';
+  const atkLost = atk.previousUnits! - atk.units;
+  const defKilled = def.previousUnits! - def.units;
+  return [`${atkName}${atkCapTag} attacked ${defName}${defCapTag} (failed). Lost: ${atkLost}, Killed: ${defKilled}, Remaining: ${atk.units}`];
 }
 
 function cardClass(card: string): string {
@@ -609,7 +576,7 @@ export function buildTimeline(
           if (attacks.length === 0 && placements.length >= 1) {
             const failed = describeFailedAttacks(
               snap.snapshot.territories,
-              (n) => mapDef.territories[n]?.connections ?? [],
+              snap.playerId,
             );
             if (failed.length > 0) attacks.push(...failed);
           }
@@ -812,7 +779,7 @@ export function generateBattleLog(replay: ReplayFile, mapDef: MapDefinition): st
           if (attacks.length === 0 && placements.length >= 1) {
             const failed = describeFailedAttacks(
               snap.territories,
-              (n) => mapDef.territories[n]?.connections ?? [],
+              Number(pid),
             );
             if (failed.length > 0) {
               attacks.push(...failed);
