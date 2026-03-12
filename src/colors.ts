@@ -1,12 +1,12 @@
 const PLAYER_COLORS: Record<string, string> = {
   color_blue: '#00bfff',     // DeepSkyBlue
-  color_red: '#ff0000',      // Red
+  color_red: '#cc3333',      // Softened Red
   color_green: '#2e8b57',    // SeaGreen
   color_yellow: '#daa520',   // Goldenrod
   color_orange: '#ff8c00',   // DarkOrange
   color_royale: '#9370db',   // MediumPurple
   color_white: '#d3d3d3',    // LightGray
-  color_black: '#000000',    // Black
+  color_black: '#333333',    // Dark Gray
   color_pink: '#ff1493',     // DeepPink
 };
 

@@ -9,6 +9,7 @@ import type { FogSettings } from './fog';
 import { computeVisibleTerritories } from './fog';
 
 const app = document.getElementById('app')!;
+let activeKeyHandler: ((e: KeyboardEvent) => void) | null = null;
 
 // Check for ?gameId= query param to auto-load from server
 const params = new URLSearchParams(window.location.search);
@@ -274,16 +275,18 @@ async function initViewer(replay: ReplayFile): Promise<void> {
     updateTimeline();
   }
 
-  document.addEventListener('keydown', (e) => {
+  // Remove previous listener if any, then add fresh one
+  if (activeKeyHandler) document.removeEventListener('keydown', activeKeyHandler);
+  activeKeyHandler = (e: KeyboardEvent) => {
     if (e.key === ' ' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
       e.preventDefault();
-      // Blur sliders so their native arrow handling doesn't also fire
       if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
       if (e.key === ' ') document.getElementById('btn-play-pause')?.click();
       else if (e.key === 'ArrowLeft') document.getElementById('btn-step-back')?.click();
       else document.getElementById('btn-step-fwd')?.click();
     }
-  });
+  };
+  document.addEventListener('keydown', activeKeyHandler);
 
   render();
 }

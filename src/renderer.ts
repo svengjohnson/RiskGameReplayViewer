@@ -272,6 +272,7 @@ export class MapRenderer {
       el.setAttribute('fill', blizzardSet.has(name) ? BLIZZARD_COLOR : UNOWNED_COLOR);
       el.setAttribute('stroke', '#1a1208');
       el.setAttribute('stroke-width', '4');
+
       (el as SVGElement).style.cursor = 'pointer';
       this.territoryElements.set(name, el as SVGElement);
     }
@@ -286,6 +287,7 @@ export class MapRenderer {
             el.setAttribute('fill', UNOWNED_COLOR);
             el.setAttribute('stroke', '#1a1208');
             el.setAttribute('stroke-width', '4');
+      
             (el as SVGElement).style.cursor = 'pointer';
             dups.push(el as SVGElement);
           }
@@ -462,6 +464,7 @@ export class MapRenderer {
 
       const contBrighten = el.cloneNode(false) as SVGElement;
       contBrighten.removeAttribute('id');
+
       contBrighten.setAttribute('fill', '#fff');
       contBrighten.setAttribute('opacity', '0.15');
       contBrighten.setAttribute('stroke', 'none');
@@ -469,6 +472,7 @@ export class MapRenderer {
 
       const contBorder = el.cloneNode(false) as SVGElement;
       contBorder.removeAttribute('id');
+
       contBorder.setAttribute('fill', 'none');
       contBorder.setAttribute('stroke', '#5fff5f');
       contBorder.setAttribute('stroke-width', String(CAPITAL_STROKE));
@@ -537,6 +541,46 @@ export class MapRenderer {
       this.unitElements.set(name, unitText);
     }
 
+    // Snowflake labels for blizzard territories
+    for (const name of this.replay.blizzards) {
+      const el = this.territoryElements.get(name);
+      if (!el) continue;
+      const gfx = el as SVGGraphicsElement;
+      const anchor = findLabelAnchor(gfx, this.svg);
+      const blockH = LABEL_FONT_SIZE + LABEL_GAP + UNIT_FONT_SIZE;
+      const topY = anchor.y - blockH / 2;
+      const unitY = topY + LABEL_FONT_SIZE + LABEL_GAP;
+
+      // Territory name for blizzard
+      const nameText = document.createElementNS(SVG_NS, 'text');
+      nameText.setAttribute('x', String(anchor.x));
+      nameText.setAttribute('y', String(topY + LABEL_FONT_SIZE));
+      nameText.setAttribute('text-anchor', 'middle');
+      nameText.setAttribute('fill', '#fff');
+      nameText.setAttribute('stroke', '#000');
+      nameText.setAttribute('stroke-width', '4');
+      nameText.setAttribute('paint-order', 'stroke');
+      nameText.setAttribute('font-family', "'Segoe UI', Roboto, Arial, sans-serif");
+      nameText.setAttribute('font-size', String(LABEL_FONT_SIZE));
+      nameText.setAttribute('font-weight', '600');
+      nameText.setAttribute('letter-spacing', '0.5');
+      nameText.style.pointerEvents = 'none';
+      nameText.style.userSelect = 'none';
+      nameText.textContent = name;
+      this.overlayGroup.appendChild(nameText);
+
+      const snowflake = document.createElementNS(SVG_NS, 'text');
+      snowflake.setAttribute('x', String(anchor.x));
+      snowflake.setAttribute('y', String(unitY + UNIT_FONT_SIZE / 2));
+      snowflake.setAttribute('text-anchor', 'middle');
+      snowflake.setAttribute('dominant-baseline', 'central');
+      snowflake.setAttribute('font-size', String(UNIT_FONT_SIZE));
+      snowflake.style.pointerEvents = 'none';
+      snowflake.style.userSelect = 'none';
+      snowflake.textContent = '\u2744\uFE0F';
+      this.overlayGroup.appendChild(snowflake);
+    }
+
     // Flash overlay group (above labels, below fog)
     this.flashGroup = document.createElementNS(SVG_NS, 'g');
     this.flashGroup.style.pointerEvents = 'none';
@@ -548,6 +592,7 @@ export class MapRenderer {
 
       const flashEl = el.cloneNode(false) as SVGElement;
       flashEl.removeAttribute('id');
+
       flashEl.setAttribute('fill', '#000');
       flashEl.setAttribute('opacity', '0');
       flashEl.setAttribute('stroke', 'none');
@@ -568,6 +613,7 @@ export class MapRenderer {
 
       const fogEl = el.cloneNode(false) as SVGElement;
       fogEl.removeAttribute('id');
+
       fogEl.setAttribute('fill', FOG_COLOR);
       fogEl.setAttribute('opacity', FOG_OPACITY);
       fogEl.setAttribute('stroke', 'none');
@@ -596,6 +642,9 @@ export class MapRenderer {
     };
     collectDecorations(this.svg);
     for (const el of decorations) this.svg.appendChild(el);
+
+    // Re-append overlay group (labels/units) above fog so text is always visible
+    this.svg.appendChild(this.overlayGroup);
 
     // Connections above fog so they remain visible
     this.svg.appendChild(connectionsGroup);
@@ -753,9 +802,9 @@ export class MapRenderer {
         const contOverlay = this.continentOverlays.get(name);
         if (contOverlay) contOverlay.setAttribute('display', 'none');
         const unitEl = this.unitElements.get(name);
-        if (unitEl) unitEl.textContent = '?';
+        if (unitEl) { unitEl.textContent = '?'; unitEl.setAttribute('opacity', '0.5'); }
         const nameLabel = this.nameLabels.get(name);
-        if (nameLabel) nameLabel.setAttribute('opacity', '0.3');
+        if (nameLabel) nameLabel.setAttribute('opacity', '0.5');
       } else {
         const playerInfo = state.replay.players[String(terr.ownedBy)];
         const color = playerInfo ? getPlayerColor(playerInfo.colour) : UNOWNED_COLOR;
@@ -788,6 +837,7 @@ export class MapRenderer {
 
         const unitEl = this.unitElements.get(name);
         if (unitEl) {
+          unitEl.setAttribute('opacity', '1');
           const change = changedTerritories.get(name);
           if (change?.prevUnits != null && change.prevUnits !== terr.units && !change.conquered) {
             unitEl.textContent = `${change.prevUnits}→${terr.units}`;
