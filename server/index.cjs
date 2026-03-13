@@ -13,6 +13,17 @@ fs.mkdirSync(uploadsDir, { recursive: true });
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_SIZE = 10 * 1024 * 1024; // 10 MB
 
+// Request logging
+const logFile = path.join(__dirname, 'requests.log');
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    const line = `${new Date().toISOString()} ${req.method} ${req.originalUrl} ${res.statusCode} ${Date.now() - start}ms ${req.headers['x-forwarded-for'] || req.socket.remoteAddress}\n`;
+    fs.appendFileSync(logFile, line);
+  });
+  next();
+});
+
 app.use(express.json({ limit: '10mb' }));
 
 // Upload a replay
