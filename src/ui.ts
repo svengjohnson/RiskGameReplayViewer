@@ -375,14 +375,15 @@ export function buildTimeline(
   setCardLabels(mapDef);
   container.innerHTML = '';
 
-  const totalRounds = Object.keys(state.replay.roundInfo).length;
+  // Normalize round keys: slider uses index (0, 1, 2, ...) into sorted round keys
+  const roundKeys = Object.keys(state.replay.roundInfo).map(Number).sort((a, b) => a - b);
+  const roundToIndex = new Map(roundKeys.map((key, i) => [key, i]));
 
-  // Round slider
   const roundRow = document.createElement('div');
   roundRow.className = 'timeline-row';
   roundRow.innerHTML = `
-    <label>Round: <span id="round-display">0</span> / ${totalRounds - 1}</label>
-    <input type="range" id="round-slider" min="0" max="${totalRounds - 1}" value="0" />
+    <label>Round: <span id="round-display">0</span> / ${roundKeys.length - 1}</label>
+    <input type="range" id="round-slider" min="0" max="${roundKeys.length - 1}" value="0" />
   `;
   container.appendChild(roundRow);
 
@@ -449,9 +450,10 @@ export function buildTimeline(
       onSnapshotChange(state.currentSnapshotIndex + 1);
       return true;
     }
-    // Move to next round
-    if (state.currentRound < totalRounds - 1) {
-      onRoundChange(state.currentRound + 1);
+    // Move to next available round
+    const nextRound = roundKeys.find(r => r > state.currentRound);
+    if (nextRound !== undefined) {
+      onRoundChange(nextRound);
       return true;
     }
     return false; // end of replay
@@ -460,12 +462,16 @@ export function buildTimeline(
   function stepBack(): void {
     if (state.currentSnapshotIndex > -1) {
       onSnapshotChange(state.currentSnapshotIndex - 1);
-    } else if (state.currentRound > 0) {
-      onRoundChange(state.currentRound - 1);
-      // Jump to end of previous round
-      const flat = getFlatSnapshots(state);
-      if (flat.length > 0) {
-        onSnapshotChange(flat.length - 1);
+    } else {
+      // Move to previous available round
+      const prevRounds = roundKeys.filter(r => r < state.currentRound);
+      if (prevRounds.length > 0) {
+        onRoundChange(prevRounds[prevRounds.length - 1]);
+        // Jump to end of previous round
+        const flat = getFlatSnapshots(state);
+        if (flat.length > 0) {
+          onSnapshotChange(flat.length - 1);
+        }
       }
     }
   }
@@ -525,7 +531,7 @@ export function buildTimeline(
 
   roundSlider.addEventListener('input', () => {
     stopPlayback();
-    onRoundChange(Number(roundSlider.value));
+    onRoundChange(roundKeys[Number(roundSlider.value)]);
   });
 
   snapSlider.addEventListener('input', () => {
@@ -536,8 +542,9 @@ export function buildTimeline(
   function updateTimeline() {
     const roundDisplay = container.querySelector('#round-display')!;
     const snapDisplay = container.querySelector('#snap-display')!;
-    roundSlider.value = String(state.currentRound);
-    roundDisplay.textContent = String(state.currentRound);
+    const roundIdx = roundToIndex.get(state.currentRound) ?? 0;
+    roundSlider.value = String(roundIdx);
+    roundDisplay.textContent = String(roundIdx);
 
     const flat = getFlatSnapshots(state);
     snapSlider.max = String(flat.length - 1);
