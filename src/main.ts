@@ -124,6 +124,8 @@ function showDropZone(): void {
       <p style="margin-top: 24px;">Don't have a replay?</p>
       <p style="margin: 4px 0;"><a href="https://github.com/svengjohnson/RiskGameRecorder/releases" target="_blank" rel="noopener" style="color: #6cb4ee;">Download the Recorder</a></p>
       <p style="margin: 4px 0;"><a href="https://discord.gg/nQqY28nrwA" target="_blank" rel="noopener" style="color: #6cb4ee;">Join the Discord</a></p>
+      <p style="margin-top: 24px;">Example games:</p>
+      <p style="margin: 4px 0;"><a href="https://risk-replay.sjohnson.io/?gameId=5a8758ff-2894-4141-8cd4-9485794f29db" rel="noopener" style="color: #6cb4ee;">Alcatraz</a> | <a href="https://risk-replay.sjohnson.io/?gameId=b117ab47-c9c0-48ca-aa7f-df84e845aa7a" rel="noopener" style="color: #6cb4ee;">Europe Advanced</a> | <a href="https://risk-replay.sjohnson.io/?gameId=abef0b33-09c3-4208-9153-0a787cf2e2ec" rel="noopener" style="color: #6cb4ee;">Classic</a></p>
     </div>
   `;
 
