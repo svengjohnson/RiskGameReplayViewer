@@ -164,7 +164,7 @@ export function buildPlayerPanel(container: HTMLElement, replay: ReplayFile): vo
     div.style.setProperty('--player-color', color);
     div.innerHTML = `
       <div class="player-header">
-        <span class="player-name">${player.name}</span>
+        <span class="player-name">${player.lobbyIndex === 0 ? '⭐ ' : ''}${player.name}</span>
         <span class="player-rank">${player.rank}</span>
       </div>
       <div class="player-stats">

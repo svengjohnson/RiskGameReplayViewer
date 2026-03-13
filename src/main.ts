@@ -121,6 +121,8 @@ function showDropZone(): void {
       <p>or</p>
       <button id="browse-btn">Browse files</button>
       <input type="file" id="file-input" accept=".json" />
+      <p style="margin-top: 24px;">Don't have a replay?</p>
+      <p style="margin: 4px 0;"><a href="https://github.com/svengjohnson/RiskGameRecorder/releases" target="_blank" rel="noopener" style="color: #6cb4ee;">Download the Recorder</a></p>
     </div>
   `;
 
