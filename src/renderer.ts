@@ -1,5 +1,5 @@
 import type { ReplayFile, ReplayState, MapDefinition } from './types';
-import { getPlayerColor, brightenColor, BLIZZARD_COLOR, UNOWNED_COLOR } from './colors';
+import { getPlayerColor, brightenColor, darkenColor, BLIZZARD_COLOR, UNOWNED_COLOR } from './colors';
 import { getHeldContinents } from './continents';
 import { getFlatSnapshots } from './replay';
 
@@ -7,7 +7,8 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
 const UNIT_FONT_SIZE = 42;
 const LABEL_FONT_SIZE = 20;
 const LABEL_GAP = 8;
-const CAPITAL_STROKE = 6;
+const TERRITORY_STROKE = 4;
+const CONTINENT_STROKE = 6;
 const MARGIN = 40;
 const FOG_COLOR = '#1a1510';
 const FOG_OPACITY = '0.75';
@@ -210,8 +211,7 @@ export class MapRenderer {
   svg!: SVGSVGElement;
   territoryElements: Map<string, SVGElement> = new Map();
   capitalBoxes: Map<string, SVGRectElement> = new Map();
-  continentOverlays: Map<string, SVGElement> = new Map();
-  continentBorders: Map<string, SVGElement> = new Map();
+  continentHeldBorders: Map<string, { group: SVGGElement; flood: SVGElement }> = new Map();
   continentGroup!: SVGGElement;
   unitElements: Map<string, SVGTextElement> = new Map();
   nameLabels: Map<string, SVGTextElement> = new Map();
@@ -290,7 +290,7 @@ export class MapRenderer {
       }
       el.setAttribute('fill', blizzardSet.has(name) ? BLIZZARD_COLOR : UNOWNED_COLOR);
       el.setAttribute('stroke', '#1a1208');
-      el.setAttribute('stroke-width', '4');
+      el.setAttribute('stroke-width', String(TERRITORY_STROKE));
 
       (el as SVGElement).style.cursor = 'pointer';
       this.territoryElements.set(name, el as SVGElement);
@@ -305,7 +305,7 @@ export class MapRenderer {
           if (el) {
             el.setAttribute('fill', UNOWNED_COLOR);
             el.setAttribute('stroke', '#1a1208');
-            el.setAttribute('stroke-width', '4');
+            el.setAttribute('stroke-width', String(TERRITORY_STROKE));
       
             (el as SVGElement).style.cursor = 'pointer';
             dups.push(el as SVGElement);
@@ -314,6 +314,89 @@ export class MapRenderer {
         if (dups.length > 0) this.duplicateElements.set(name, dups);
       }
     }
+
+    // Continent border group — per-continent masked stroke groups.
+    // Each continent gets a mask that hides stroke portions falling inside the continent,
+    // so only the outer boundary strokes are visible (cross-continent borders show, internal don't).
+    const continentBorderGroup = document.createElementNS(SVG_NS, 'g');
+    continentBorderGroup.style.pointerEvents = 'none';
+
+    const borderDefs = document.createElementNS(SVG_NS, 'defs');
+    continentBorderGroup.appendChild(borderDefs);
+
+    for (const [contName, cont] of Object.entries(this.mapDef.continents)) {
+      const maskId = `cont-mask-${contName.replace(/[^a-zA-Z0-9]/g, '-')}`;
+
+      // Mask: white background (visible everywhere) with black territory shapes (hide internal strokes)
+      const mask = document.createElementNS(SVG_NS, 'mask');
+      mask.setAttribute('id', maskId);
+      mask.setAttribute('maskUnits', 'userSpaceOnUse');
+      mask.setAttribute('x', '-5000');
+      mask.setAttribute('y', '-5000');
+      mask.setAttribute('width', '15000');
+      mask.setAttribute('height', '15000');
+
+      const maskBg = document.createElementNS(SVG_NS, 'rect');
+      maskBg.setAttribute('x', '-5000');
+      maskBg.setAttribute('y', '-5000');
+      maskBg.setAttribute('width', '15000');
+      maskBg.setAttribute('height', '15000');
+      maskBg.setAttribute('fill', 'white');
+      mask.appendChild(maskBg);
+
+      for (const tName of cont.territories) {
+        const el = this.territoryElements.get(tName);
+        if (!el) continue;
+        const maskEl = el.cloneNode(false) as SVGElement;
+        maskEl.removeAttribute('id');
+        maskEl.setAttribute('fill', 'black');
+        maskEl.setAttribute('stroke', 'none');
+        mask.appendChild(maskEl);
+        // Also mask duplicates
+        const dups = this.duplicateElements.get(tName);
+        if (dups) {
+          for (const dup of dups) {
+            const dupMask = dup.cloneNode(false) as SVGElement;
+            dupMask.removeAttribute('id');
+            dupMask.setAttribute('fill', 'black');
+            dupMask.setAttribute('stroke', 'none');
+            mask.appendChild(dupMask);
+          }
+        }
+      }
+
+      borderDefs.appendChild(mask);
+
+      // Stroke group: thick strokes masked to only show outside the continent
+      const contGroup = document.createElementNS(SVG_NS, 'g');
+      contGroup.setAttribute('mask', `url(#${maskId})`);
+
+      for (const tName of cont.territories) {
+        const el = this.territoryElements.get(tName);
+        if (!el) continue;
+        const borderEl = el.cloneNode(false) as SVGElement;
+        borderEl.removeAttribute('id');
+        borderEl.setAttribute('fill', 'none');
+        borderEl.setAttribute('stroke', '#0a0a06');
+        borderEl.setAttribute('stroke-width', String(CONTINENT_STROKE * 2));
+        contGroup.appendChild(borderEl);
+        const dups = this.duplicateElements.get(tName);
+        if (dups) {
+          for (const dup of dups) {
+            const dupBorder = dup.cloneNode(false) as SVGElement;
+            dupBorder.removeAttribute('id');
+            dupBorder.setAttribute('fill', 'none');
+            dupBorder.setAttribute('stroke', '#0a0a06');
+            dupBorder.setAttribute('stroke-width', String(CONTINENT_STROKE * 2));
+            contGroup.appendChild(dupBorder);
+          }
+        }
+      }
+
+      continentBorderGroup.appendChild(contGroup);
+    }
+    // Append after territories — will be repositioned after territory elements are styled
+    this.svg.appendChild(continentBorderGroup);
 
     // Continent overlay group (below labels)
     this.continentGroup = document.createElementNS(SVG_NS, 'g');
@@ -476,31 +559,6 @@ export class MapRenderer {
       const blockH = LABEL_FONT_SIZE + LABEL_GAP + UNIT_FONT_SIZE;
       const topY = anchor.y - blockH / 2;
 
-      // Continent bonus overlay: darkening + colored border following territory shape
-      const contGroupEl = document.createElementNS(SVG_NS, 'g');
-      contGroupEl.setAttribute('display', 'none');
-      contGroupEl.style.pointerEvents = 'none';
-
-      const contBrighten = el.cloneNode(false) as SVGElement;
-      contBrighten.removeAttribute('id');
-
-      contBrighten.setAttribute('fill', '#fff');
-      contBrighten.setAttribute('opacity', '0.15');
-      contBrighten.setAttribute('stroke', 'none');
-      contGroupEl.appendChild(contBrighten);
-
-      const contBorder = el.cloneNode(false) as SVGElement;
-      contBorder.removeAttribute('id');
-
-      contBorder.setAttribute('fill', 'none');
-      contBorder.setAttribute('stroke', '#5fff5f');
-      contBorder.setAttribute('stroke-width', String(CAPITAL_STROKE));
-      contGroupEl.appendChild(contBorder);
-
-      this.continentGroup.appendChild(contGroupEl);
-      this.continentOverlays.set(name, contGroupEl);
-      this.continentBorders.set(name, contBorder);
-
       // Territory name
       const nameText = document.createElementNS(SVG_NS, 'text');
       nameText.setAttribute('x', String(anchor.x));
@@ -560,10 +618,132 @@ export class MapRenderer {
       this.unitElements.set(name, unitText);
     }
 
+    // Per-continent masked colored border groups for held continent highlighting.
+    // Per-continent held border highlight using feMorphology filter.
+    // All territories are drawn as opaque fills in a group. The filter dilates the
+    // group's alpha to create an expanded outline, subtracts the original → pure outline.
+    // Since the group is one merged alpha, there are NO internal borders.
+    // An inner continent mask limits the visible outline to the inside of the continent.
+    const heldBorderDefs = document.createElementNS(SVG_NS, 'defs');
+    this.continentGroup.appendChild(heldBorderDefs);
+
+    for (const [contName, cont] of Object.entries(this.mapDef.continents)) {
+      const safeContName = contName.replace(/[^a-zA-Z0-9]/g, '-');
+      const filterId = `cont-held-filter-${safeContName}`;
+      const maskId = `cont-held-mask-${safeContName}`;
+
+      // Inner outline filter: erode alpha → subtract eroded from original → inner ring
+      const filter = document.createElementNS(SVG_NS, 'filter');
+      filter.setAttribute('id', filterId);
+      filter.setAttribute('x', '-5%');
+      filter.setAttribute('y', '-5%');
+      filter.setAttribute('width', '110%');
+      filter.setAttribute('height', '110%');
+
+      const morph = document.createElementNS(SVG_NS, 'feMorphology');
+      morph.setAttribute('in', 'SourceAlpha');
+      morph.setAttribute('operator', 'erode');
+      morph.setAttribute('radius', String(CONTINENT_STROKE));
+      morph.setAttribute('result', 'eroded');
+      filter.appendChild(morph);
+
+      // Original minus eroded = inner border ring
+      const compOut = document.createElementNS(SVG_NS, 'feComposite');
+      compOut.setAttribute('in', 'SourceAlpha');
+      compOut.setAttribute('in2', 'eroded');
+      compOut.setAttribute('operator', 'out');
+      compOut.setAttribute('result', 'ring');
+      filter.appendChild(compOut);
+
+      const flood = document.createElementNS(SVG_NS, 'feFlood');
+      flood.setAttribute('flood-color', '#5fff5f');
+      flood.setAttribute('result', 'color');
+      filter.appendChild(flood);
+
+      const compIn = document.createElementNS(SVG_NS, 'feComposite');
+      compIn.setAttribute('in', 'color');
+      compIn.setAttribute('in2', 'ring');
+      compIn.setAttribute('operator', 'in');
+      filter.appendChild(compIn);
+
+      heldBorderDefs.appendChild(filter);
+
+      // Inner continent mask: show only inside the continent
+      const mask = document.createElementNS(SVG_NS, 'mask');
+      mask.setAttribute('id', maskId);
+      mask.setAttribute('maskUnits', 'userSpaceOnUse');
+      mask.setAttribute('x', '-5000');
+      mask.setAttribute('y', '-5000');
+      mask.setAttribute('width', '15000');
+      mask.setAttribute('height', '15000');
+
+      const maskBg = document.createElementNS(SVG_NS, 'rect');
+      maskBg.setAttribute('x', '-5000');
+      maskBg.setAttribute('y', '-5000');
+      maskBg.setAttribute('width', '15000');
+      maskBg.setAttribute('height', '15000');
+      maskBg.setAttribute('fill', 'black');
+      mask.appendChild(maskBg);
+
+      for (const tName of cont.territories) {
+        const el = this.territoryElements.get(tName);
+        if (!el) continue;
+        const maskEl = el.cloneNode(false) as SVGElement;
+        maskEl.removeAttribute('id');
+        maskEl.setAttribute('fill', 'white');
+        maskEl.setAttribute('stroke', 'none');
+        mask.appendChild(maskEl);
+        const dups = this.duplicateElements.get(tName);
+        if (dups) {
+          for (const dup of dups) {
+            const dupMask = dup.cloneNode(false) as SVGElement;
+            dupMask.removeAttribute('id');
+            dupMask.setAttribute('fill', 'white');
+            dupMask.setAttribute('stroke', 'none');
+            mask.appendChild(dupMask);
+          }
+        }
+      }
+
+      heldBorderDefs.appendChild(mask);
+
+      // Filtered + masked group
+      const contGroup = document.createElementNS(SVG_NS, 'g');
+      contGroup.setAttribute('filter', `url(#${filterId})`);
+      contGroup.setAttribute('mask', `url(#${maskId})`);
+      contGroup.setAttribute('display', 'none');
+      contGroup.style.pointerEvents = 'none';
+
+      // Territory fills (color doesn't matter — filter uses SourceAlpha)
+      for (const tName of cont.territories) {
+        const el = this.territoryElements.get(tName);
+        if (!el) continue;
+        const fillEl = el.cloneNode(false) as SVGElement;
+        fillEl.removeAttribute('id');
+        fillEl.setAttribute('fill', 'black');
+        fillEl.setAttribute('stroke', 'none');
+        contGroup.appendChild(fillEl);
+        const dups = this.duplicateElements.get(tName);
+        if (dups) {
+          for (const dup of dups) {
+            const dupFill = dup.cloneNode(false) as SVGElement;
+            dupFill.removeAttribute('id');
+            dupFill.setAttribute('fill', 'black');
+            dupFill.setAttribute('stroke', 'none');
+            contGroup.appendChild(dupFill);
+          }
+        }
+      }
+
+      this.continentGroup.appendChild(contGroup);
+      this.continentHeldBorders.set(contName, { group: contGroup, flood });
+    }
+
     // Snowflake labels for blizzard territories
     for (const name of this.replay.blizzards) {
       const el = this.territoryElements.get(name);
       if (!el) continue;
+
       const gfx = el as SVGGraphicsElement;
       const anchor = findLabelAnchor(gfx, this.svg);
       const blockH = LABEL_FONT_SIZE + LABEL_GAP + UNIT_FONT_SIZE;
@@ -649,7 +829,7 @@ export class MapRenderer {
     for (const dups of this.duplicateElements.values()) {
       for (const el of dups) knownElements.add(el);
     }
-    const ourGroups = new Set<Element>([this.overlayGroup, this.continentGroup, this.flashGroup, this.fogGroup, connectionsGroup]);
+    const ourGroups = new Set<Element>([this.overlayGroup, this.continentGroup, this.flashGroup, this.fogGroup, connectionsGroup, continentBorderGroup]);
     const decorations: Element[] = [];
     const collectDecorations = (parent: Element) => {
       for (const child of Array.from(parent.children)) {
@@ -756,24 +936,35 @@ export class MapRenderer {
   update(state: ReplayState, visibleTerritories?: Set<string>): void {
     const blizzardSet = new Set(state.replay.blizzards);
 
-    // Compute held continent territories for highlighting
+    // Compute held continents for highlighting
     const heldContinents = getHeldContinents(state, this.mapDef);
     // When fog is active, only show continent if all its territories are visible
-    const continentTerritories = new Set<string>();
-    const continentOwnerColors = new Map<string, string>(); // territory → owner color
+    const heldContinentColors = new Map<string, string>(); // continent name → darkened color
+    const heldTerritoryStroke = new Map<string, string>(); // territory name → darkened color
     for (const [pid, held] of Object.entries(heldContinents)) {
       const playerInfo = state.replay.players[pid];
       const color = playerInfo ? getPlayerColor(playerInfo.colour) : '#5fff5f';
       for (const cont of held) {
-        // Under fog, skip if any continent territory is hidden
         if (visibleTerritories) {
           const allVisible = cont.territories.every(t => blizzardSet.has(t) || visibleTerritories.has(t));
           if (!allVisible) continue;
         }
+        const dark = darkenColor(color);
+        heldContinentColors.set(cont.name, dark);
         for (const t of cont.territories) {
-          continentTerritories.add(t);
-          continentOwnerColors.set(t, brightenColor(color, 0.4));
+          heldTerritoryStroke.set(t, dark);
         }
+      }
+    }
+
+    // Update per-continent held border groups
+    for (const [contName, { group, flood }] of this.continentHeldBorders) {
+      const color = heldContinentColors.get(contName);
+      if (color) {
+        group.setAttribute('display', 'inline');
+        flood.setAttribute('flood-color', color);
+      } else {
+        group.setAttribute('display', 'none');
       }
     }
 
@@ -815,11 +1006,10 @@ export class MapRenderer {
 
       if (fogged) {
         el.setAttribute('fill', '#4a4035');
+        el.setAttribute('stroke', '#1a1208');
         syncDuplicates('#4a4035');
         const capBox = this.capitalBoxes.get(name);
         if (capBox) capBox.setAttribute('display', 'none');
-        const contOverlay = this.continentOverlays.get(name);
-        if (contOverlay) contOverlay.setAttribute('display', 'none');
         const unitEl = this.unitElements.get(name);
         if (unitEl) { unitEl.textContent = '?'; unitEl.setAttribute('opacity', '0.5'); }
         const nameLabel = this.nameLabels.get(name);
@@ -830,6 +1020,13 @@ export class MapRenderer {
         el.setAttribute('fill', color);
         syncDuplicates(color);
 
+        // Soften internal borders when continent is held
+        const heldStroke = heldTerritoryStroke.get(name);
+        const strokeColor = heldStroke ?? '#1a1208';
+        el.setAttribute('stroke', strokeColor);
+        const dups = this.duplicateElements.get(name);
+        if (dups) for (const dup of dups) dup.setAttribute('stroke', strokeColor);
+
         // Capital: player-colored box around troop number
         const capBox = this.capitalBoxes.get(name);
         if (capBox) {
@@ -838,19 +1035,6 @@ export class MapRenderer {
             capBox.setAttribute('stroke', brightenColor(color, 0.5));
           } else {
             capBox.setAttribute('display', 'none');
-          }
-        }
-
-        // Continent bonus: dark overlay + player-colored border on territory shape
-        const contOverlay = this.continentOverlays.get(name);
-        if (contOverlay) {
-          const inHeldContinent = continentTerritories.has(name);
-          contOverlay.setAttribute('display', inHeldContinent ? 'inline' : 'none');
-          if (inHeldContinent) {
-            const contBorder = this.continentBorders.get(name);
-            if (contBorder) {
-              contBorder.setAttribute('stroke', continentOwnerColors.get(name) ?? '#5fff5f');
-            }
           }
         }
 
