@@ -734,13 +734,14 @@ export function buildGameInfo(container: HTMLElement, replay: ReplayFile): void 
 export function generateBattleLog(replay: ReplayFile, mapDef: MapDefinition): string {
   setCardLabels(mapDef);
   const lines: string[] = [];
-  const totalRnds = Object.keys(replay.roundInfo).length;
+  const logRoundKeys = Object.keys(replay.roundInfo).map(Number).sort((a, b) => a - b);
 
-  for (let round = 0; round < totalRnds; round++) {
+  for (let i = 0; i < logRoundKeys.length; i++) {
+    const round = logRoundKeys[i];
     const roundData = replay.roundInfo[String(round)];
     if (!roundData) continue;
 
-    lines.push(`=== ROUND ${round} ===`);
+    lines.push(`=== ROUND ${i} ===`);
 
     if (!roundData.playerTurns) continue;
 
