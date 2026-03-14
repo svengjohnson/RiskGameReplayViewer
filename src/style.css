@@ -14,7 +14,7 @@ body {
 
 #app {
   display: grid;
-  grid-template-columns: 1fr 280px;
+  grid-template-columns: 1fr 340px;
   grid-template-rows: auto 1fr auto;
   height: 100vh;
   gap: 0;
@@ -192,10 +192,27 @@ a.btn-header {
   border: 1px solid #3a5a3a;
 }
 
+.player-card-body {
+  display: flex;
+  gap: 10px;
+}
+
+.player-card-main {
+  flex: 1;
+  min-width: 0;
+}
+
 .player-alliances {
   font-size: 11px;
-  margin-top: 4px;
   color: #aaa;
+  flex-shrink: 0;
+  border-left: 1px solid #333;
+  padding-left: 8px;
+  min-width: 90px;
+}
+
+.player-alliances:empty {
+  display: none;
 }
 
 .alliance-label {

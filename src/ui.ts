@@ -163,20 +163,24 @@ export function buildPlayerPanel(container: HTMLElement, replay: ReplayFile): vo
     div.style.borderLeftColor = color;
     div.style.setProperty('--player-color', color);
     div.innerHTML = `
-      <div class="player-header">
-        <span class="player-name">${replay.gameInfo.localPlayer === Number(id) ? '🕹️ ' : ''}${player.lobbyIndex === 0 ? '🖥️ ' : ''}${player.name}</span>
-        <span class="player-rank">${player.rank}</span>
+      <div class="player-card-body">
+        <div class="player-card-main">
+          <div class="player-header">
+            <span class="player-name">${replay.gameInfo.localPlayer === Number(id) ? '🕹️ ' : ''}${player.lobbyIndex === 0 ? '🖥️ ' : ''}${player.name}</span>
+            <span class="player-rank">${player.rank}</span>
+          </div>
+          <div class="player-stats">
+            <span class="stat" data-stat="territories">Territories: -</span>
+            <span class="stat" data-stat="units">Troops: -</span>
+            <span class="stat" data-stat="capitals">Capitals: -</span>
+            <span class="stat" data-stat="income">Income: -</span>
+          </div>
+          <div class="player-cards"></div>
+          <div class="player-continents"></div>
+          <div class="player-status"></div>
+        </div>
+        <div class="player-alliances"></div>
       </div>
-      <div class="player-stats">
-        <span class="stat" data-stat="territories">Territories: -</span>
-        <span class="stat" data-stat="units">Troops: -</span>
-        <span class="stat" data-stat="capitals">Capitals: -</span>
-        <span class="stat" data-stat="income">Income: -</span>
-      </div>
-      <div class="player-cards"></div>
-      <div class="player-continents"></div>
-      <div class="player-alliances"></div>
-      <div class="player-status"></div>
     `;
     container.appendChild(div);
   }
