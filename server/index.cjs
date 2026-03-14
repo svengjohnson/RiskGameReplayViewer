@@ -29,7 +29,7 @@ const PLAYER_COLORS = {
   color_pink: '#ff1493',
 };
 const UNOWNED_COLOR = '#c0b090';
-const BLIZZARD_COLOR = '#ffffff';
+
 
 const MAP_SVGS = {
   Alcatraz: path.join(__dirname, '..', 'src', 'maps', 'Alcatraz', 'Alcatraz.svg'),
@@ -108,7 +108,6 @@ app.get('/api/replay/:gameId', (req, res) => {
   res.sendFile(filePath);
 });
 
-const FOG_COLOR = '#3a3a3a';
 
 function computeVisibleTerritories(mapState, connections, playerId, alliances) {
   const visible = new Set();
@@ -163,10 +162,21 @@ function generatePreview(gameId) {
   const vbMatch = svg.match(/viewBox="([^"]+)"/);
   const viewBox = vbMatch ? vbMatch[1] : '0 0 3840 2160';
 
-  // Add background rect after opening <svg> tag
+  // Add background rect and pattern definitions after opening <svg> tag
+  const svgPatterns = `
+    <defs>
+      <pattern id="pattern-blizzard" patternUnits="userSpaceOnUse" width="40" height="40" patternTransform="rotate(45)">
+        <rect width="40" height="40" fill="#e8e8f0"/>
+        <rect width="20" height="40" fill="#ffffff"/>
+      </pattern>
+      <pattern id="pattern-fog" patternUnits="userSpaceOnUse" width="40" height="40" patternTransform="rotate(45)">
+        <rect width="40" height="40" fill="#2a2520"/>
+        <rect width="20" height="40" fill="#342e28"/>
+      </pattern>
+    </defs>`;
   svg = svg.replace(
     /(<svg[^>]*>)/,
-    `$1<rect x="-5000" y="-5000" width="15000" height="15000" fill="#2b2b2b"/>`
+    `$1${svgPatterns}<rect x="-5000" y="-5000" width="15000" height="15000" fill="#2b2b2b"/>`
   );
 
   // Determine fog visibility if applicable
@@ -193,9 +203,9 @@ function generatePreview(gameId) {
 
       let color;
       if (fogged) {
-        color = FOG_COLOR;
+        color = 'url(#pattern-fog)';
       } else if (isBlizzard) {
-        color = BLIZZARD_COLOR;
+        color = 'url(#pattern-blizzard)';
       } else {
         color = PLAYER_COLORS[replay.players[String(terr.ownedBy)]?.colour] || UNOWNED_COLOR;
       }
@@ -208,6 +218,13 @@ function generatePreview(gameId) {
         svg = svg.replace(
           new RegExp(`(id="${id}")`),
           `$1 fill="${color}"`
+        );
+      }
+      // Add stroke to territory elements
+      if (!new RegExp(`id="${id}"[^>]*stroke=`).test(svg)) {
+        svg = svg.replace(
+          new RegExp(`(id="${id}")`),
+          `$1 stroke="#1a1208" stroke-width="4"`
         );
       }
 

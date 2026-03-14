@@ -1,5 +1,5 @@
 import type { ReplayFile, ReplayState, MapDefinition } from './types';
-import { getPlayerColor, brightenColor, darkenColor, BLIZZARD_COLOR, UNOWNED_COLOR } from './colors';
+import { getPlayerColor, brightenColor, darkenColor, UNOWNED_COLOR } from './colors';
 import { getHeldContinents } from './continents';
 import { getFlatSnapshots } from './replay';
 
@@ -10,8 +10,6 @@ const LABEL_GAP = 8;
 const TERRITORY_STROKE = 4;
 const CONTINENT_STROKE = 6;
 const MARGIN = 40;
-const FOG_COLOR = '#1a1510';
-const FOG_OPACITY = '0.75';
 
 /**
  * Sample points along an SVG shape's perimeter.
@@ -275,6 +273,49 @@ export class MapRenderer {
       this.svg.insertBefore(bg, this.svg.firstChild);
     }
 
+    // Create pattern definitions for blizzard and fog
+    const patternDefs = document.createElementNS(SVG_NS, 'defs');
+
+    // Blizzard: white with light-blue diagonal stripes
+    const blizzardPattern = document.createElementNS(SVG_NS, 'pattern');
+    blizzardPattern.setAttribute('id', 'pattern-blizzard');
+    blizzardPattern.setAttribute('patternUnits', 'userSpaceOnUse');
+    blizzardPattern.setAttribute('width', '40');
+    blizzardPattern.setAttribute('height', '40');
+    blizzardPattern.setAttribute('patternTransform', 'rotate(45)');
+    const blizRect = document.createElementNS(SVG_NS, 'rect');
+    blizRect.setAttribute('width', '40');
+    blizRect.setAttribute('height', '40');
+    blizRect.setAttribute('fill', '#e8e8f0');
+    blizzardPattern.appendChild(blizRect);
+    const blizStripe = document.createElementNS(SVG_NS, 'rect');
+    blizStripe.setAttribute('width', '20');
+    blizStripe.setAttribute('height', '40');
+    blizStripe.setAttribute('fill', '#ffffff');
+    blizzardPattern.appendChild(blizStripe);
+    patternDefs.appendChild(blizzardPattern);
+
+    // Fog: dark with slightly lighter diagonal stripes
+    const fogPattern = document.createElementNS(SVG_NS, 'pattern');
+    fogPattern.setAttribute('id', 'pattern-fog');
+    fogPattern.setAttribute('patternUnits', 'userSpaceOnUse');
+    fogPattern.setAttribute('width', '40');
+    fogPattern.setAttribute('height', '40');
+    fogPattern.setAttribute('patternTransform', 'rotate(45)');
+    const fogRect = document.createElementNS(SVG_NS, 'rect');
+    fogRect.setAttribute('width', '40');
+    fogRect.setAttribute('height', '40');
+    fogRect.setAttribute('fill', '#2a2520');
+    fogPattern.appendChild(fogRect);
+    const fogStripe = document.createElementNS(SVG_NS, 'rect');
+    fogStripe.setAttribute('width', '20');
+    fogStripe.setAttribute('height', '40');
+    fogStripe.setAttribute('fill', '#342e28');
+    fogPattern.appendChild(fogStripe);
+    patternDefs.appendChild(fogPattern);
+
+    this.svg.insertBefore(patternDefs, this.svg.firstChild);
+
     // Find and style territory elements
     const blizzardSet = new Set(this.replay.blizzards);
     const allNames = [
@@ -288,7 +329,7 @@ export class MapRenderer {
         console.warn(`Territory not found in SVG: ${name}`);
         continue;
       }
-      el.setAttribute('fill', blizzardSet.has(name) ? BLIZZARD_COLOR : UNOWNED_COLOR);
+      el.setAttribute('fill', blizzardSet.has(name) ? 'url(#pattern-blizzard)' : UNOWNED_COLOR);
       el.setAttribute('stroke', '#1a1208');
       el.setAttribute('stroke-width', String(TERRITORY_STROKE));
 
@@ -813,8 +854,8 @@ export class MapRenderer {
       const fogEl = el.cloneNode(false) as SVGElement;
       fogEl.removeAttribute('id');
 
-      fogEl.setAttribute('fill', FOG_COLOR);
-      fogEl.setAttribute('opacity', FOG_OPACITY);
+      fogEl.setAttribute('fill', '#1a1510');
+      fogEl.setAttribute('opacity', '0.75');
       fogEl.setAttribute('stroke', 'none');
       fogEl.setAttribute('display', 'none');
       fogEl.style.pointerEvents = 'none';
@@ -1005,9 +1046,9 @@ export class MapRenderer {
       };
 
       if (fogged) {
-        el.setAttribute('fill', '#4a4035');
+        el.setAttribute('fill', 'url(#pattern-fog)');
         el.setAttribute('stroke', '#1a1208');
-        syncDuplicates('#4a4035');
+        syncDuplicates('url(#pattern-fog)');
         const capBox = this.capitalBoxes.get(name);
         if (capBox) capBox.setAttribute('display', 'none');
         const unitEl = this.unitElements.get(name);
