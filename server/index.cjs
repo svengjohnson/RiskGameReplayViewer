@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const { Resvg } = require('@resvg/resvg-js');
 const { insertReplay, getReplay } = require('./db.cjs');
+const MAP_CONNECTIONS = require('./map-connections.cjs');
 
 const app = express();
 const portArg = process.argv.find(a => a.startsWith('--port='));
@@ -107,6 +108,34 @@ app.get('/api/replay/:gameId', (req, res) => {
   res.sendFile(filePath);
 });
 
+const FOG_COLOR = '#3a3a3a';
+
+function computeVisibleTerritories(mapState, connections, playerId, alliances) {
+  const visible = new Set();
+  const allies = new Set([playerId]);
+  const allianceList = alliances?.[String(playerId)];
+  if (allianceList) {
+    for (const a of allianceList) allies.add(a);
+  }
+
+  const ownedByFriendly = [];
+  for (const [name, terr] of Object.entries(mapState)) {
+    if (allies.has(terr.ownedBy)) {
+      ownedByFriendly.push(name);
+      visible.add(name);
+    }
+  }
+
+  for (const name of ownedByFriendly) {
+    const conns = connections[name];
+    if (conns) {
+      for (const neighbor of conns) visible.add(neighbor);
+    }
+  }
+
+  return visible;
+}
+
 // Preview image generation
 function generatePreview(gameId) {
   const cachedPath = path.join(previewsDir, `${gameId}.png`);
@@ -140,17 +169,37 @@ function generatePreview(gameId) {
     `$1<rect x="-5000" y="-5000" width="15000" height="15000" fill="#2b2b2b"/>`
   );
 
-  // Color territories from round 0 state and collect troop counts
+  // Determine fog visibility if applicable
+  const isFog = !!replay.gameInfo.fog;
+  const localPlayer = replay.gameInfo.localPlayer;
+  const connections = MAP_CONNECTIONS[replay.gameInfo.map];
   const round0 = replay.roundInfo['0'] || replay.roundInfo[Object.keys(replay.roundInfo).sort((a, b) => a - b)[0]];
+
+  let visibleSet = null;
+  if (isFog && localPlayer != null && round0?.mapState && connections) {
+    visibleSet = computeVisibleTerritories(
+      round0.mapState, connections, localPlayer, round0.alliances || {}
+    );
+  }
+
+  // Color territories from round 0 state and collect troop counts
   const troopLabels = [];
   if (round0?.mapState) {
     const blizzardSet = new Set(replay.blizzards || []);
     for (const [name, terr] of Object.entries(round0.mapState)) {
       const id = nameToId(name);
       const isBlizzard = blizzardSet.has(name);
-      const color = isBlizzard
-        ? BLIZZARD_COLOR
-        : (PLAYER_COLORS[replay.players[String(terr.ownedBy)]?.colour] || UNOWNED_COLOR);
+      const fogged = visibleSet && !visibleSet.has(name);
+
+      let color;
+      if (fogged) {
+        color = FOG_COLOR;
+      } else if (isBlizzard) {
+        color = BLIZZARD_COLOR;
+      } else {
+        color = PLAYER_COLORS[replay.players[String(terr.ownedBy)]?.colour] || UNOWNED_COLOR;
+      }
+
       // Replace fill on elements with matching id
       const idPattern = new RegExp(`(id="${id}"[^>]*?)(?:fill="[^"]*")`, 'g');
       svg = svg.replace(idPattern, `$1fill="${color}"`);
@@ -161,7 +210,9 @@ function generatePreview(gameId) {
           `$1 fill="${color}"`
         );
       }
-      // Collect troop count for non-blizzard territories, snowflake for blizzards
+
+      // Collect labels only for visible territories
+      if (fogged) continue;
       if (isBlizzard) {
         troopLabels.push({ id, units: null, blizzard: true });
       } else if (terr.units != null) {
