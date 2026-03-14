@@ -192,47 +192,40 @@ function generatePreview(gameId) {
     );
   }
 
-  // Color territories from round 0 state and collect troop counts
+  // Helper to set fill and stroke on an SVG element by id
+  function styleTerritory(id, color) {
+    const idPattern = new RegExp(`(id="${id}"[^>]*?)(?:fill="[^"]*")`, 'g');
+    svg = svg.replace(idPattern, `$1fill="${color}"`);
+    if (!new RegExp(`id="${id}"[^>]*fill=`).test(svg)) {
+      svg = svg.replace(new RegExp(`(id="${id}")`), `$1 fill="${color}"`);
+    }
+    if (!new RegExp(`id="${id}"[^>]*stroke=`).test(svg)) {
+      svg = svg.replace(new RegExp(`(id="${id}")`), `$1 stroke="#1a1208" stroke-width="4"`);
+    }
+  }
+
+  // Color blizzard territories (not in mapState, listed separately)
   const troopLabels = [];
+  const blizzardNames = replay.blizzards || [];
+  for (const name of blizzardNames) {
+    const id = nameToId(name);
+    styleTerritory(id, 'url(#pattern-blizzard)');
+    troopLabels.push({ id, units: null, blizzard: true });
+  }
+
+  // Color territories from round 0 state and collect troop counts
   if (round0?.mapState) {
-    const blizzardSet = new Set(replay.blizzards || []);
     for (const [name, terr] of Object.entries(round0.mapState)) {
       const id = nameToId(name);
-      const isBlizzard = blizzardSet.has(name);
       const fogged = visibleSet && !visibleSet.has(name);
 
-      let color;
-      if (fogged) {
-        color = 'url(#pattern-fog)';
-      } else if (isBlizzard) {
-        color = 'url(#pattern-blizzard)';
-      } else {
-        color = PLAYER_COLORS[replay.players[String(terr.ownedBy)]?.colour] || UNOWNED_COLOR;
-      }
+      const color = fogged
+        ? 'url(#pattern-fog)'
+        : (PLAYER_COLORS[replay.players[String(terr.ownedBy)]?.colour] || UNOWNED_COLOR);
 
-      // Replace fill on elements with matching id
-      const idPattern = new RegExp(`(id="${id}"[^>]*?)(?:fill="[^"]*")`, 'g');
-      svg = svg.replace(idPattern, `$1fill="${color}"`);
-      // If no fill attribute exists, add one
-      if (!new RegExp(`id="${id}"[^>]*fill=`).test(svg)) {
-        svg = svg.replace(
-          new RegExp(`(id="${id}")`),
-          `$1 fill="${color}"`
-        );
-      }
-      // Add stroke to territory elements
-      if (!new RegExp(`id="${id}"[^>]*stroke=`).test(svg)) {
-        svg = svg.replace(
-          new RegExp(`(id="${id}")`),
-          `$1 stroke="#1a1208" stroke-width="4"`
-        );
-      }
+      styleTerritory(id, color);
 
-      // Collect labels only for visible territories
-      if (fogged) continue;
-      if (isBlizzard) {
-        troopLabels.push({ id, units: null, blizzard: true });
-      } else if (terr.units != null) {
+      if (!fogged && terr.units != null) {
         troopLabels.push({ id, units: terr.units, blizzard: false });
       }
     }
@@ -266,21 +259,38 @@ function generatePreview(gameId) {
         cx = parseFloat(rxm[1]) + parseFloat(rwm[1]) / 2;
         cy = parseFloat(rym[1]) + parseFloat(rhm[1]) / 2;
       } else {
-        // For path elements, parse d attribute to find bounding box center
+        // For path elements, parse d attribute to extract coordinate pairs
         const dMatch = elStr.match(/\bd="([^"]+)"/);
         if (!dMatch) continue;
-        const nums = dMatch[1].match(/-?\d+\.?\d*/g);
-        if (!nums || nums.length < 4) continue;
-        // Collect coordinate pairs from the numbers
+        const d = dMatch[1];
+        // Extract coordinates by parsing M/L/Z commands (our SVGs use absolute coords)
         let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-        for (let i = 0; i < nums.length - 1; i += 2) {
-          const x = parseFloat(nums[i]);
-          const y = parseFloat(nums[i + 1]);
+        const coordRe = /([ML])\s*([\d.e+-]+)[,\s]+([\d.e+-]+)|[Zz]/gi;
+        let cm;
+        while ((cm = coordRe.exec(d)) !== null) {
+          if (!cm[1]) continue; // Z command
+          const x = parseFloat(cm[2]);
+          const y = parseFloat(cm[3]);
           if (isFinite(x) && isFinite(y)) {
             if (x < minX) minX = x;
             if (x > maxX) maxX = x;
             if (y < minY) minY = y;
             if (y > maxY) maxY = y;
+          }
+        }
+        // Fallback: also handle comma-separated coordinate sequences after M/L
+        if (!isFinite(minX)) {
+          const nums = d.match(/-?\d+\.?\d*/g);
+          if (!nums || nums.length < 4) continue;
+          for (let i = 0; i < nums.length - 1; i += 2) {
+            const x = parseFloat(nums[i]);
+            const y = parseFloat(nums[i + 1]);
+            if (isFinite(x) && isFinite(y)) {
+              if (x < minX) minX = x;
+              if (x > maxX) maxX = x;
+              if (y < minY) minY = y;
+              if (y > maxY) maxY = y;
+            }
           }
         }
         if (!isFinite(minX)) continue;

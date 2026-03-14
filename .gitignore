@@ -3,3 +3,4 @@ dist/
 uploads/
 server/data/
 server/requests.log
+.claude/
