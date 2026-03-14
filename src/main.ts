@@ -213,10 +213,11 @@ async function initViewer(replay: ReplayFile): Promise<void> {
   }
 
   const state: ReplayState = createReplayState(replay);
+  const localPlayer = replay.gameInfo.localPlayer;
   const fog: FogSettings = {
     enabled: !!replay.gameInfo.fog,
-    playerId: 1,
-    followPlayer: true,
+    playerId: localPlayer ?? 1,
+    followPlayer: localPlayer == null,
   };
 
   app.innerHTML = `
