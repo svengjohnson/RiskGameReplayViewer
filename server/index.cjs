@@ -193,7 +193,7 @@ app.get('/api/preview/:gameId.png', (req, res) => {
 
 // Serve static frontend
 const distDir = path.join(__dirname, '..', 'dist');
-app.use(express.static(distDir));
+app.use(express.static(distDir, { index: false }));
 
 function escapeHtml(str) {
   return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
