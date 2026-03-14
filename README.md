@@ -18,11 +18,6 @@ A web-based replay viewer for Risk board games. Load a replay JSON file and watc
 - Battle log with full game history exportable as text
 - Support for unsupported maps (battle log still available without map rendering)
 
-## Supported Maps
-
-- **Alcatraz** - 39 territories, 5 continents
-- **Classic** - 42 territories, 6 continents
-
 Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for how to add new maps.
 
 ## Prerequisites
