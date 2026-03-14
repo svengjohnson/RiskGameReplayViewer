@@ -140,13 +140,15 @@ function generatePreview(gameId) {
     `$1<rect x="-5000" y="-5000" width="15000" height="15000" fill="#2b2b2b"/>`
   );
 
-  // Color territories from round 0 state
-  const round0 = replay.roundInfo['0'];
+  // Color territories from round 0 state and collect troop counts
+  const round0 = replay.roundInfo['0'] || replay.roundInfo[Object.keys(replay.roundInfo).sort((a, b) => a - b)[0]];
+  const troopLabels = [];
   if (round0?.mapState) {
     const blizzardSet = new Set(replay.blizzards || []);
     for (const [name, terr] of Object.entries(round0.mapState)) {
       const id = nameToId(name);
-      const color = blizzardSet.has(name)
+      const isBlizzard = blizzardSet.has(name);
+      const color = isBlizzard
         ? BLIZZARD_COLOR
         : (PLAYER_COLORS[replay.players[String(terr.ownedBy)]?.colour] || UNOWNED_COLOR);
       // Replace fill on elements with matching id
@@ -159,7 +161,80 @@ function generatePreview(gameId) {
           `$1 fill="${color}"`
         );
       }
+      // Collect troop count for non-blizzard territories, snowflake for blizzards
+      if (isBlizzard) {
+        troopLabels.push({ id, units: null, blizzard: true });
+      } else if (terr.units != null) {
+        troopLabels.push({ id, units: terr.units, blizzard: false });
+      }
     }
+  }
+
+  // Add troop count labels by finding territory element bounding boxes from path data
+  if (troopLabels.length > 0) {
+    // Parse viewBox dimensions for font sizing
+    const vbParts = viewBox.split(/\s+/).map(Number);
+    const vbW = vbParts[2] || 3840;
+    const fontSize = Math.round(vbW / 80);
+    const boxPad = Math.round(fontSize * 0.4);
+
+    let labels = '';
+    for (const { id, units, blizzard } of troopLabels) {
+      // Find the path/rect element's d or x/y/width/height to approximate center
+      // Try to extract a bounding center from the path's d attribute
+      const elMatch = svg.match(new RegExp(`<(?:path|rect)[^>]*id="${id}"[^>]*>`, 's'))
+        || svg.match(new RegExp(`<(?:path|rect)[^>]*id="${id}"[^/]*/>`, 's'));
+      if (!elMatch) continue;
+
+      const elStr = elMatch[0];
+      let cx, cy;
+
+      // For rect elements
+      const rxm = elStr.match(/\bx="([^"]+)"/);
+      const rym = elStr.match(/\by="([^"]+)"/);
+      const rwm = elStr.match(/\bwidth="([^"]+)"/);
+      const rhm = elStr.match(/\bheight="([^"]+)"/);
+      if (rxm && rym && rwm && rhm) {
+        cx = parseFloat(rxm[1]) + parseFloat(rwm[1]) / 2;
+        cy = parseFloat(rym[1]) + parseFloat(rhm[1]) / 2;
+      } else {
+        // For path elements, parse d attribute to find bounding box center
+        const dMatch = elStr.match(/\bd="([^"]+)"/);
+        if (!dMatch) continue;
+        const nums = dMatch[1].match(/-?\d+\.?\d*/g);
+        if (!nums || nums.length < 4) continue;
+        // Collect coordinate pairs from the numbers
+        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+        for (let i = 0; i < nums.length - 1; i += 2) {
+          const x = parseFloat(nums[i]);
+          const y = parseFloat(nums[i + 1]);
+          if (isFinite(x) && isFinite(y)) {
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+          }
+        }
+        if (!isFinite(minX)) continue;
+        cx = (minX + maxX) / 2;
+        cy = (minY + maxY) / 2;
+      }
+
+      if (blizzard) {
+        labels += `<text x="${cx}" y="${cy + fontSize * 0.35}" text-anchor="middle" font-family="Arial,sans-serif" font-size="${fontSize}" fill="white">&#x2744;</text>`;
+      } else {
+        const text = String(units);
+        const textW = text.length * fontSize * 0.6;
+        const boxW = textW + boxPad * 2;
+        const boxH = fontSize + boxPad * 2;
+
+        labels += `<rect x="${cx - boxW / 2}" y="${cy - boxH / 2}" width="${boxW}" height="${boxH}" rx="4" fill="rgba(0,0,0,0.55)"/>`;
+        labels += `<text x="${cx}" y="${cy + fontSize * 0.35}" text-anchor="middle" font-family="Arial,sans-serif" font-size="${fontSize}" font-weight="bold" fill="white">${text}</text>`;
+      }
+    }
+
+    // Insert labels before closing </svg>
+    svg = svg.replace('</svg>', `${labels}</svg>`);
   }
 
   try {
@@ -199,9 +274,12 @@ function escapeHtml(str) {
   return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-function formatDuration(seconds) {
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
+function formatDuration(ms) {
+  const totalSecs = Math.floor(ms / 1000);
+  const h = Math.floor(totalSecs / 3600);
+  const m = Math.floor((totalSecs % 3600) / 60);
+  const s = totalSecs % 60;
+  if (h > 0) return s > 0 ? `${h}h ${m}m ${s}s` : `${h}h ${m}m`;
   return s > 0 ? `${m}m ${s}s` : `${m}m`;
 }
 
@@ -238,8 +316,8 @@ app.get('*', (req, res) => {
     return res.sendFile(indexPath);
   }
 
-  const title = `${meta.map} — ${meta.gameMode}`;
-  const desc = `${meta.players.length} players · ${meta.rounds} rounds · ${meta.duration}\nCards: ${meta.cardType} · ${meta.players.join(', ')}`;
+  const title = `${meta.map} · ${meta.gameMode} · ${meta.cardType}`;
+  const desc = `${meta.players.length} players · ${meta.rounds} rounds · ${meta.duration}\n${meta.players.join(', ')}`;
   const fullUrl = `${req.protocol}://${req.get('host')}`;
   const imageUrl = `${fullUrl}/api/preview/${escapeHtml(gameId)}.png`;
 
