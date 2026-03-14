@@ -210,7 +210,6 @@ function generatePreview(gameId) {
   for (const name of blizzardNames) {
     const id = nameToId(name);
     styleTerritory(id, 'url(#pattern-blizzard)');
-    troopLabels.push({ id, units: null, blizzard: true });
   }
 
   // Color territories from round 0 state and collect troop counts
@@ -226,7 +225,7 @@ function generatePreview(gameId) {
       styleTerritory(id, color);
 
       if (!fogged && terr.units != null) {
-        troopLabels.push({ id, units: terr.units, blizzard: false });
+        troopLabels.push({ id, units: terr.units });
       }
     }
   }
@@ -240,7 +239,7 @@ function generatePreview(gameId) {
     const boxPad = Math.round(fontSize * 0.4);
 
     let labels = '';
-    for (const { id, units, blizzard } of troopLabels) {
+    for (const { id, units } of troopLabels) {
       // Find the path/rect element's d or x/y/width/height to approximate center
       // Try to extract a bounding center from the path's d attribute
       const elMatch = svg.match(new RegExp(`<(?:path|rect)[^>]*id="${id}"[^>]*>`, 's'))
@@ -250,11 +249,11 @@ function generatePreview(gameId) {
       const elStr = elMatch[0];
       let cx, cy;
 
-      // For rect elements
-      const rxm = elStr.match(/\bx="([^"]+)"/);
-      const rym = elStr.match(/\by="([^"]+)"/);
-      const rwm = elStr.match(/\bwidth="([^"]+)"/);
-      const rhm = elStr.match(/\bheight="([^"]+)"/);
+      // For rect elements (use space/start-of-attr prefix to avoid matching stroke-width etc.)
+      const rxm = elStr.match(/(?:^|[\s"])x="([^"]+)"/);
+      const rym = elStr.match(/(?:^|[\s"'])y="([^"]+)"/);
+      const rwm = elStr.match(/(?:^|\s)width="([^"]+)"/);
+      const rhm = elStr.match(/(?:^|\s)height="([^"]+)"/);
       if (rxm && rym && rwm && rhm) {
         cx = parseFloat(rxm[1]) + parseFloat(rwm[1]) / 2;
         cy = parseFloat(rym[1]) + parseFloat(rhm[1]) / 2;
@@ -298,17 +297,13 @@ function generatePreview(gameId) {
         cy = (minY + maxY) / 2;
       }
 
-      if (blizzard) {
-        labels += `<text x="${cx}" y="${cy + fontSize * 0.35}" text-anchor="middle" font-family="Arial,sans-serif" font-size="${fontSize}" fill="white">&#x2744;</text>`;
-      } else {
-        const text = String(units);
-        const textW = text.length * fontSize * 0.6;
-        const boxW = textW + boxPad * 2;
-        const boxH = fontSize + boxPad * 2;
+      const text = String(units);
+      const textW = text.length * fontSize * 0.6;
+      const boxW = textW + boxPad * 2;
+      const boxH = fontSize + boxPad * 2;
 
-        labels += `<rect x="${cx - boxW / 2}" y="${cy - boxH / 2}" width="${boxW}" height="${boxH}" rx="4" fill="rgba(0,0,0,0.55)"/>`;
-        labels += `<text x="${cx}" y="${cy + fontSize * 0.35}" text-anchor="middle" font-family="Arial,sans-serif" font-size="${fontSize}" font-weight="bold" fill="white">${text}</text>`;
-      }
+      labels += `<rect x="${cx - boxW / 2}" y="${cy - boxH / 2}" width="${boxW}" height="${boxH}" rx="4" fill="rgba(0,0,0,0.55)"/>`;
+      labels += `<text x="${cx}" y="${cy + fontSize * 0.35}" text-anchor="middle" font-family="Arial,sans-serif" font-size="${fontSize}" font-weight="bold" fill="white">${text}</text>`;
     }
 
     // Insert labels before closing </svg>
