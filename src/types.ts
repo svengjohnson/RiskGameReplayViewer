@@ -22,6 +22,7 @@ export interface GameInfo {
   inactivityBehavior: string;
   portals: string;
   gameDuration: number;
+  localPlayer?: number;
 }
 
 export interface PlayerInfo {

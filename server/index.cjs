@@ -293,6 +293,8 @@ function getReplayMeta(gameId) {
     const gi = data.gameInfo;
     const rounds = Object.keys(data.roundInfo).length;
     const players = Object.values(data.players).map(p => p.name);
+    const hostPlayer = Object.values(data.players).find(p => p.lobbyIndex === 0);
+    const localPlayer = gi.localPlayer != null ? data.players[String(gi.localPlayer)] : null;
     return {
       map: gi.map,
       gameMode: gi.gameMode,
@@ -300,6 +302,8 @@ function getReplayMeta(gameId) {
       duration: formatDuration(gi.gameDuration),
       rounds,
       players,
+      playedBy: localPlayer?.name || null,
+      hostedBy: hostPlayer?.name || null,
     };
   } catch {
     return null;
@@ -317,7 +321,11 @@ app.get('*', (req, res) => {
   }
 
   const title = `${meta.map} · ${meta.gameMode} · ${meta.cardType}`;
-  const desc = `${meta.players.length} players · ${meta.rounds} rounds · ${meta.duration}\n${meta.players.join(', ')}`;
+  const lines = [`${meta.players.length} players · ${meta.rounds} rounds · ${meta.duration}`];
+  if (meta.playedBy) lines.push(`Played By: ${meta.playedBy}`);
+  if (meta.hostedBy) lines.push(`Hosted By: ${meta.hostedBy}`);
+  lines.push(meta.players.join(', '));
+  const desc = lines.join('\n');
   const fullUrl = `${req.protocol}://${req.get('host')}`;
   const imageUrl = `${fullUrl}/api/preview/${escapeHtml(gameId)}.png`;
 
