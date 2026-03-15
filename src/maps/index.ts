@@ -2,11 +2,13 @@ import type { MapDefinition } from '../types';
 import { createAlcatrazMap } from './Alcatraz';
 import { createClassicMap } from './Classic';
 import { createEuropeAdvancedMap } from './EuropeAdvanced';
+import { createSupermaxPrisonMap } from './SupermaxPrison';
 
 const maps: Record<string, () => MapDefinition> = {
   Alcatraz: createAlcatrazMap,
   Classic: createClassicMap,
   'Europe Advanced': createEuropeAdvancedMap,
+  'Supermax Prison': createSupermaxPrisonMap,
 };
 
 export function getMapDefinition(mapName: string): MapDefinition | null {

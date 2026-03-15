@@ -35,6 +35,7 @@ const MAP_SVGS = {
   Alcatraz: path.join(__dirname, '..', 'src', 'maps', 'Alcatraz', 'Alcatraz.svg'),
   Classic: path.join(__dirname, '..', 'src', 'maps', 'Classic', 'Classic.svg'),
   'Europe Advanced': path.join(__dirname, '..', 'src', 'maps', 'EuropeAdvanced', 'EuropeAdvanced.svg'),
+  'Supermax Prison': path.join(__dirname, '..', 'src', 'maps', 'SupermaxPrison', 'SupermaxPrison.svg'),
 };
 
 function nameToId(name) {
