@@ -704,7 +704,8 @@ export function buildFogControls(
 
 export function buildDisplayControls(
   container: HTMLElement,
-  onToggleNames: (show: boolean) => void
+  onToggleNames: (show: boolean) => void,
+  onToggleDecorations: (show: boolean) => void
 ): void {
   // Find existing fog-row or create a new one
   let row = container.querySelector('.fog-row') as HTMLElement | null;
@@ -723,9 +724,23 @@ export function buildDisplayControls(
   label.innerHTML = `<input type="checkbox" id="show-names" checked /> Territory Names`;
   row.appendChild(label);
 
+  const sep2 = document.createElement('span');
+  sep2.className = 'fog-separator';
+  row.appendChild(sep2);
+
+  const decoLabel = document.createElement('label');
+  decoLabel.className = 'fog-toggle';
+  decoLabel.innerHTML = `<input type="checkbox" id="show-decorations" checked /> Decorations`;
+  row.appendChild(decoLabel);
+
   const checkbox = row.querySelector('#show-names') as HTMLInputElement;
   checkbox.addEventListener('change', () => {
     onToggleNames(checkbox.checked);
+  });
+
+  const decoCheckbox = row.querySelector('#show-decorations') as HTMLInputElement;
+  decoCheckbox.addEventListener('change', () => {
+    onToggleDecorations(decoCheckbox.checked);
   });
 }
 

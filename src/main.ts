@@ -259,7 +259,11 @@ async function initViewer(replay: ReplayFile): Promise<void> {
   );
 
   buildFogControls(timelineEl, replay, fog, render);
-  buildDisplayControls(timelineEl, (show) => renderer.setShowNames(show));
+  buildDisplayControls(
+    timelineEl,
+    (show) => renderer.setShowNames(show),
+    (show) => renderer.setShowDecorations(show)
+  );
 
   function render(): void {
     // Follow-player fog: switch fog perspective to current snapshot's player

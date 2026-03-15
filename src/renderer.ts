@@ -217,6 +217,7 @@ export class MapRenderer {
   fogOverlays: Map<string, SVGElement> = new Map();
   flashOverlays: Map<string, SVGElement> = new Map();
   duplicateElements: Map<string, SVGElement[]> = new Map();
+  decorationElements: Element[] = [];
   overlayGroup!: SVGGElement;
   fogGroup!: SVGGElement;
   flashGroup!: SVGGElement;
@@ -881,6 +882,7 @@ export class MapRenderer {
       }
     };
     collectDecorations(this.svg);
+    this.decorationElements = decorations;
     for (const el of decorations) this.svg.appendChild(el);
 
     // Re-append overlay group (labels/units) above fog so text is always visible
@@ -975,6 +977,12 @@ export class MapRenderer {
   }
 
   showNames = true;
+
+  setShowDecorations(show: boolean): void {
+    for (const el of this.decorationElements) {
+      (el as SVGElement).setAttribute('display', show ? 'inline' : 'none');
+    }
+  }
 
   setShowNames(show: boolean): void {
     this.showNames = show;
