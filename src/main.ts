@@ -4,7 +4,7 @@ import { createReplayState, goToRound, goToSnapshot, getCurrentSnapshotPlayerId 
 import { getMapDefinition } from './maps/index';
 import { MapRenderer } from './renderer';
 import type { MapDefinition } from './types';
-import { buildPlayerPanel, updatePlayerPanel, buildTimeline, buildGameInfo, buildFogControls, showBattleLog } from './ui';
+import { buildPlayerPanel, updatePlayerPanel, buildTimeline, buildGameInfo, buildFogControls, buildDisplayControls, showBattleLog } from './ui';
 import type { FogSettings } from './fog';
 import { computeVisibleTerritories } from './fog';
 
@@ -259,6 +259,7 @@ async function initViewer(replay: ReplayFile): Promise<void> {
   );
 
   buildFogControls(timelineEl, replay, fog, render);
+  buildDisplayControls(timelineEl, (show) => renderer.setShowNames(show));
 
   function render(): void {
     // Follow-player fog: switch fog perspective to current snapshot's player

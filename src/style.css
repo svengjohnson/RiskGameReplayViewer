@@ -336,6 +336,13 @@ a.btn-header {
   accent-color: #4a90d9;
 }
 
+.fog-separator {
+  width: 1px;
+  height: 16px;
+  background: #555;
+  margin: 0 4px;
+}
+
 #fog-player {
   background: #1a1a3e;
   color: #e0e0e0;

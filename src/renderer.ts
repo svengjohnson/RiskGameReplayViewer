@@ -974,6 +974,25 @@ export class MapRenderer {
     );
   }
 
+  showNames = true;
+
+  setShowNames(show: boolean): void {
+    this.showNames = show;
+    for (const label of this.nameLabels.values()) {
+      label.setAttribute('display', show ? 'inline' : 'none');
+    }
+    // Reposition troop counts and capital boxes
+    const offset = show ? 0 : -(LABEL_FONT_SIZE + LABEL_GAP) / 2;
+    for (const [name, anchor] of this.labelAnchors) {
+      const unitText = this.unitElements.get(name);
+      const capBox = this.capitalBoxes.get(name);
+      const newUnitY = anchor.unitY + offset;
+      const boxCenterY = newUnitY - anchor.boxPad + anchor.boxH / 2;
+      if (unitText) unitText.setAttribute('y', String(boxCenterY));
+      if (capBox) capBox.setAttribute('y', String(newUnitY - anchor.boxPad));
+    }
+  }
+
   update(state: ReplayState, visibleTerritories?: Set<string>): void {
     const blizzardSet = new Set(state.replay.blizzards);
 

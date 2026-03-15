@@ -702,6 +702,33 @@ export function buildFogControls(
   });
 }
 
+export function buildDisplayControls(
+  container: HTMLElement,
+  onToggleNames: (show: boolean) => void
+): void {
+  // Find existing fog-row or create a new one
+  let row = container.querySelector('.fog-row') as HTMLElement | null;
+  if (!row) {
+    row = document.createElement('div');
+    row.className = 'timeline-row fog-row';
+    container.appendChild(row);
+  }
+
+  const sep = document.createElement('span');
+  sep.className = 'fog-separator';
+  row.appendChild(sep);
+
+  const label = document.createElement('label');
+  label.className = 'fog-toggle';
+  label.innerHTML = `<input type="checkbox" id="show-names" checked /> Territory Names`;
+  row.appendChild(label);
+
+  const checkbox = row.querySelector('#show-names') as HTMLInputElement;
+  checkbox.addEventListener('change', () => {
+    onToggleNames(checkbox.checked);
+  });
+}
+
 export function buildGameInfo(container: HTMLElement, replay: ReplayFile): void {
   const gi = replay.gameInfo;
   const totalSecs = Math.floor(gi.gameDuration / 1000);
