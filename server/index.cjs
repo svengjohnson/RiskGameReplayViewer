@@ -386,6 +386,9 @@ function getReplayMeta(gameId) {
       duration: formatDuration(gi.gameDuration),
       rounds,
       players,
+      fog: !!gi.fog,
+      blizzards: !!gi.blizzards,
+      alliances: !!gi.alliances,
       portals: gi.portals || null,
       date: data.metadata?.date || null,
       playedBy: localPlayer?.name || null,
@@ -407,15 +410,17 @@ app.get('*', (req, res) => {
   }
 
   const title = `${meta.map} · ${meta.gameMode} · ${meta.cardType}`;
-  const lines = [`${meta.players.length} players · ${meta.rounds} rounds · ${meta.duration}`];
-  if (meta.portals) lines.push(`Portals: ${meta.portals}`);
+  const line1 = `${meta.players.length} players · ${meta.rounds} rounds · ${meta.duration}`;
+  let line2 = '';
   if (meta.date) {
     const d = new Date(meta.date);
-    lines.push(`Date: ${d.toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })}`);
+    line2 = `Date: ${d.toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })}`;
   }
+  const lines = [line2 ? `${line1}\n${line2}` : line1];
   if (meta.playedBy) lines.push(`Played By: ${meta.playedBy}`);
   if (meta.hostedBy) lines.push(`Hosted By: ${meta.hostedBy}`);
-  lines.push(meta.players.join(', '));
+  lines.push(`Players: ${meta.players.join(', ')}`);
+  lines.push(`Fog: ${meta.fog ? 'Yes' : 'No'} · Blizzards: ${meta.blizzards ? 'Yes' : 'No'} · Alliances: ${meta.alliances ? 'Yes' : 'No'}${meta.portals ? ` · Portals: ${meta.portals}` : ''}`);
   const desc = lines.join('\n');
   const fullUrl = `${req.protocol}://${req.get('host')}`;
   const imageUrl = `${fullUrl}/api/preview/${escapeHtml(gameId)}.png`;
