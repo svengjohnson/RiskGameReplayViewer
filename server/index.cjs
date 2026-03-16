@@ -411,7 +411,7 @@ app.get('*', (req, res) => {
   if (meta.portals) lines.push(`Portals: ${meta.portals}`);
   if (meta.date) {
     const d = new Date(meta.date);
-    lines.push(`Date: ${d.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short', timeZoneName: 'short' })}`);
+    lines.push(`Date: ${d.toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })}`);
   }
   if (meta.playedBy) lines.push(`Played By: ${meta.playedBy}`);
   if (meta.hostedBy) lines.push(`Hosted By: ${meta.hostedBy}`);
