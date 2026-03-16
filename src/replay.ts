@@ -40,8 +40,21 @@ function isPortalOnlySnapshot(snap: import('./types').Snapshot): boolean {
   return true;
 }
 
-export function getFlatSnapshots(state: ReplayState): FlatSnapshot[] {
-  const round = state.replay.roundInfo[String(state.currentRound)];
+/** Detect manual placement: round 0 where multiple players' snapshots are interleaved by time */
+export function isManualPlacementRound(round: import('./types').RoundData): boolean {
+  if (!round?.playerTurns) return false;
+  const entries = Object.entries(round.playerTurns);
+  if (entries.length < 2) return false;
+  // Check if first snapshot times are interleaved (player 2's first snap is between player 1's first and second)
+  const firstTimes = entries.map(([, turn]) => turn.snapshots[0]?.time ?? 0);
+  const secondTime = entries[0][1].snapshots[1]?.time;
+  if (secondTime == null) return false;
+  // If any other player's first snapshot is before player 1's second, it's interleaved
+  return firstTimes.some((t, i) => i > 0 && t < secondTime);
+}
+
+/** Build flat snapshot list, optionally sorted by time for manual placement */
+function buildFlatSnapshots(round: import('./types').RoundData, sortByTime: boolean): FlatSnapshot[] {
   if (!round?.playerTurns) return [];
 
   const flat: FlatSnapshot[] = [];
@@ -55,8 +68,18 @@ export function getFlatSnapshots(state: ReplayState): FlatSnapshot[] {
     }
   }
 
-  // Remove portal-only snapshots (portal state changes shown at next round start)
+  if (sortByTime) {
+    flat.sort((a, b) => a.snapshot.time - b.snapshot.time);
+  }
+
   return flat.filter(s => !isPortalOnlySnapshot(s.snapshot));
+}
+
+export function getFlatSnapshots(state: ReplayState): FlatSnapshot[] {
+  const round = state.replay.roundInfo[String(state.currentRound)];
+  if (!round) return [];
+  const sortByTime = state.currentRound === 0 && isManualPlacementRound(round);
+  return buildFlatSnapshots(round, sortByTime);
 }
 
 /** Compute the map state at a given round + snapshot position */
@@ -73,27 +96,26 @@ export function computeStateAt(
     return { mapState, alliances };
   }
 
+  // Build ordered snapshot list (time-sorted for manual placement rounds)
+  const sortByTime = round === 0 && isManualPlacementRound(roundData);
+  const flat = buildFlatSnapshots(roundData, sortByTime);
+
   // Apply snapshots in order up to snapshotPosition
   // Portal state (isPortal/isActivePortal) is preserved from round start — changes deferred to next round
-  let idx = 0;
-  for (const [, turn] of Object.entries(roundData.playerTurns)) {
-    for (const snap of turn.snapshots) {
-      if (isPortalOnlySnapshot(snap)) continue;
-      if (idx > snapshotPosition) return { mapState, alliances };
-      if (snap.type === 'territory') {
-        for (const [name, terr] of Object.entries(snap.territories)) {
-          mapState[name] = {
-            ownedBy: terr.ownedBy,
-            isCapital: terr.isCapital,
-            isPortal: mapState[name]?.isPortal ?? terr.isPortal,
-            isActivePortal: mapState[name]?.isActivePortal ?? terr.isActivePortal,
-            units: terr.units,
-          };
-        }
-      } else if (snap.type === 'alliance') {
-        alliances = structuredClone(snap.alliances);
+  for (let idx = 0; idx <= snapshotPosition && idx < flat.length; idx++) {
+    const snap = flat[idx].snapshot;
+    if (snap.type === 'territory') {
+      for (const [name, terr] of Object.entries(snap.territories)) {
+        mapState[name] = {
+          ownedBy: terr.ownedBy,
+          isCapital: terr.isCapital,
+          isPortal: mapState[name]?.isPortal ?? terr.isPortal,
+          isActivePortal: mapState[name]?.isActivePortal ?? terr.isActivePortal,
+          units: terr.units,
+        };
       }
-      idx++;
+    } else if (snap.type === 'alliance') {
+      alliances = structuredClone(snap.alliances);
     }
   }
 

@@ -1,6 +1,6 @@
 import type { ReplayFile, ReplayState, MapDefinition } from './types';
 import { getPlayerColor } from './colors';
-import { getFlatSnapshots, computeStateAt, getCurrentSnapshotPlayerId } from './replay';
+import { getFlatSnapshots, computeStateAt, getCurrentSnapshotPlayerId, isManualPlacementRound } from './replay';
 import type { FogSettings } from './fog';
 import { getHeldContinents } from './continents';
 
@@ -801,66 +801,37 @@ export function generateBattleLog(replay: ReplayFile, mapDef: MapDefinition): st
 
     if (!roundData.playerTurns) continue;
 
-    let flatIdx = 0;
     let prevMapState = structuredClone(roundData.mapState);
     let prevAlliances = structuredClone(roundData.alliances);
 
-    let lastTime = '';
-    let isFirstTurn = true;
+    const isManual = round === 0 && isManualPlacementRound(roundData);
 
-    for (const [pid, turn] of Object.entries(roundData.playerTurns)) {
-      const pLabel = playerLabel(replay, pid);
+    if (isManual) {
+      // Manual placement: interleave snapshots from all players by time
+      const allSnaps: { playerId: number; snapshot: import('./types').Snapshot }[] = [];
+      for (const [pid, turn] of Object.entries(roundData.playerTurns)) {
+        for (const snap of turn.snapshots) {
+          allSnaps.push({ playerId: Number(pid), snapshot: snap });
+        }
+      }
+      allSnaps.sort((a, b) => a.snapshot.time - b.snapshot.time);
 
-      if (!isFirstTurn) lines.push('');
-      isFirstTurn = false;
-
-      // Find the first timestamp in this turn's snapshots
-      const firstSnap = turn.snapshots[0];
-      if (firstSnap) lastTime = formatGameTime(firstSnap.time);
-
-      lines.push(`[${lastTime}] ${pLabel}: Earned ${turn.income} troops`);
-
-      for (const snap of turn.snapshots) {
-        lastTime = formatGameTime(snap.time);
+      for (const { playerId, snapshot: snap } of allSnaps) {
+        const pLabel = playerLabel(replay, playerId);
+        const time = formatGameTime(snap.time);
 
         if (snap.type === 'territory') {
-          const attacks: string[] = [];
           const placements: string[] = [];
-
           for (const [name, t] of Object.entries(snap.territories)) {
-            // Skip portal-only changes (no ownership or unit change)
             if (t.previouslyOwnedBy === undefined && (t.previousUnits === undefined || t.previousUnits === t.units)) continue;
-            if (t.previouslyOwnedBy !== undefined) {
-              const connections = mapDef.territories[name]?.connections ?? [];
-              attacks.push(describeAttack(name, t, snap.territories, connections, prevMapState));
-            } else {
-              const prev = t.previousUnits ?? t.units;
-              const placed = t.units - prev;
-              const capTag = t.isCapital ? ' (Capital)' : '';
-              placements.push(`${name}${capTag} ${prev}→${t.units} (${placed >= 0 ? '+' : ''}${placed})`);
-            }
-          }
-
-          // Detect failed attacks among "placements"
-          if (attacks.length === 0 && placements.length >= 1) {
-            const failed = describeFailedAttacks(
-              snap.territories,
-              Number(pid),
-            );
-            if (failed.length > 0) {
-              attacks.push(...failed);
-              placements.length = 0; // clear placements, they're part of the failed attack
-            }
-          }
-
-          if (attacks.length > 0) {
-            for (const atk of attacks) lines.push(`[${lastTime}] ${pLabel}: ${atk}`);
+            const prev = t.previousUnits ?? t.units;
+            const placed = t.units - prev;
+            const capTag = t.isCapital ? ' (Capital)' : '';
+            placements.push(`${name}${capTag} ${prev}→${t.units} (${placed >= 0 ? '+' : ''}${placed})`);
           }
           if (placements.length > 0) {
-            lines.push(`[${lastTime}] ${pLabel}: Placed troops: ${placements.join(', ')}`);
+            lines.push(`[${time}] ${pLabel}: Placed troops: ${placements.join(', ')}`);
           }
-
-          // Apply snapshot to track state
           for (const [name, t] of Object.entries(snap.territories)) {
             prevMapState[name] = {
               ownedBy: t.ownedBy,
@@ -870,48 +841,115 @@ export function generateBattleLog(replay: ReplayFile, mapDef: MapDefinition): st
               units: t.units,
             };
           }
-        } else if (snap.type === 'player_killed') {
-          const killedLabel = playerLabel(replay, snap.player.id);
-          lines.push(`[${lastTime}] ${pLabel}: Killed ${killedLabel}`);
-        } else if (snap.type === 'alliance') {
-          for (const [apid, newList] of Object.entries(snap.alliances)) {
-            const newSet = new Set(newList);
-            const prevSet = new Set(prevAlliances[apid] ?? []);
-            const added = [...newSet].filter(a => !prevSet.has(a));
-            const removed = [...prevSet].filter(a => !newSet.has(a));
-            if (added.length > 0) {
-              lines.push(`[${lastTime}] ${playerLabel(replay, apid)} allied ${playerLabel(replay, added[0])}`);
-              break;
-            }
-            if (removed.length > 0) {
-              lines.push(`[${lastTime}] Alliance broken: ${playerLabel(replay, apid)} and ${playerLabel(replay, removed[0])}`);
-              break;
-            }
-          }
-          prevAlliances = structuredClone(snap.alliances);
-        } else if (snap.type === 'cards_traded') {
-          lines.push(`[${lastTime}] ${pLabel}: Traded cards: ${snap.cards.map(c => cardLabel(c)).join(', ')}`);
-        } else if (snap.type === 'game_over') {
-          lines.push(`[${lastTime}] Game Over`);
         }
-
-        flatIdx++;
       }
+    } else {
+      let lastTime = '';
+      let isFirstTurn = true;
 
-      // Cards earned at end of turn
-      if (turn.cardsAfterTurn.length > turn.cardsAtTurnStart.length) {
-        const startSet = [...turn.cardsAtTurnStart];
-        const earned: string[] = [];
-        for (const c of turn.cardsAfterTurn) {
-          const idx = startSet.indexOf(c);
-          if (idx !== -1) {
-            startSet.splice(idx, 1);
-          } else {
-            earned.push(cardLabel(c));
+      for (const [pid, turn] of Object.entries(roundData.playerTurns)) {
+        const pLabel = playerLabel(replay, pid);
+
+        if (!isFirstTurn) lines.push('');
+        isFirstTurn = false;
+
+        // Find the first timestamp in this turn's snapshots
+        const firstSnap = turn.snapshots[0];
+        if (firstSnap) lastTime = formatGameTime(firstSnap.time);
+
+        lines.push(`[${lastTime}] ${pLabel}: Earned ${turn.income} troops`);
+
+        for (const snap of turn.snapshots) {
+          lastTime = formatGameTime(snap.time);
+
+          if (snap.type === 'territory') {
+            const attacks: string[] = [];
+            const placements: string[] = [];
+
+            for (const [name, t] of Object.entries(snap.territories)) {
+              // Skip portal-only changes (no ownership or unit change)
+              if (t.previouslyOwnedBy === undefined && (t.previousUnits === undefined || t.previousUnits === t.units)) continue;
+              if (t.previouslyOwnedBy !== undefined) {
+                const connections = mapDef.territories[name]?.connections ?? [];
+                attacks.push(describeAttack(name, t, snap.territories, connections, prevMapState));
+              } else {
+                const prev = t.previousUnits ?? t.units;
+                const placed = t.units - prev;
+                const capTag = t.isCapital ? ' (Capital)' : '';
+                placements.push(`${name}${capTag} ${prev}→${t.units} (${placed >= 0 ? '+' : ''}${placed})`);
+              }
+            }
+
+            // Detect failed attacks among "placements"
+            if (attacks.length === 0 && placements.length >= 1) {
+              const failed = describeFailedAttacks(
+                snap.territories,
+                Number(pid),
+              );
+              if (failed.length > 0) {
+                attacks.push(...failed);
+                placements.length = 0; // clear placements, they're part of the failed attack
+              }
+            }
+
+            if (attacks.length > 0) {
+              for (const atk of attacks) lines.push(`[${lastTime}] ${pLabel}: ${atk}`);
+            }
+            if (placements.length > 0) {
+              lines.push(`[${lastTime}] ${pLabel}: Placed troops: ${placements.join(', ')}`);
+            }
+
+            // Apply snapshot to track state
+            for (const [name, t] of Object.entries(snap.territories)) {
+              prevMapState[name] = {
+                ownedBy: t.ownedBy,
+                isCapital: t.isCapital,
+                isPortal: t.isPortal,
+                isActivePortal: t.isActivePortal,
+                units: t.units,
+              };
+            }
+          } else if (snap.type === 'player_killed') {
+            const killedLabel = playerLabel(replay, snap.player.id);
+            lines.push(`[${lastTime}] ${pLabel}: Killed ${killedLabel}`);
+          } else if (snap.type === 'alliance') {
+            for (const [apid, newList] of Object.entries(snap.alliances)) {
+              const newSet = new Set(newList);
+              const prevSet = new Set(prevAlliances[apid] ?? []);
+              const added = [...newSet].filter(a => !prevSet.has(a));
+              const removed = [...prevSet].filter(a => !newSet.has(a));
+              if (added.length > 0) {
+                lines.push(`[${lastTime}] ${playerLabel(replay, apid)} allied ${playerLabel(replay, added[0])}`);
+                break;
+              }
+              if (removed.length > 0) {
+                lines.push(`[${lastTime}] Alliance broken: ${playerLabel(replay, apid)} and ${playerLabel(replay, removed[0])}`);
+                break;
+              }
+            }
+            prevAlliances = structuredClone(snap.alliances);
+          } else if (snap.type === 'cards_traded') {
+            lines.push(`[${lastTime}] ${pLabel}: Traded cards: ${snap.cards.map(c => cardLabel(c)).join(', ')}`);
+          } else if (snap.type === 'game_over') {
+            lines.push(`[${lastTime}] Game Over`);
           }
         }
-        if (earned.length > 0) {
-          lines.push(`[${lastTime}] ${pLabel} earned card: ${earned.join(', ')}`);
+
+        // Cards earned at end of turn
+        if (turn.cardsAfterTurn.length > turn.cardsAtTurnStart.length) {
+          const startSet = [...turn.cardsAtTurnStart];
+          const earned: string[] = [];
+          for (const c of turn.cardsAfterTurn) {
+            const idx = startSet.indexOf(c);
+            if (idx !== -1) {
+              startSet.splice(idx, 1);
+            } else {
+              earned.push(cardLabel(c));
+            }
+          }
+          if (earned.length > 0) {
+            lines.push(`[${lastTime}] ${pLabel} earned card: ${earned.join(', ')}`);
+          }
         }
       }
     }
