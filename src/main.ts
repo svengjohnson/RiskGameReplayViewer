@@ -181,15 +181,20 @@ async function initViewer(replay: ReplayFile): Promise<void> {
     const mins = Math.floor((totalSecs % 3600) / 60);
     const secs = totalSecs % 60;
     const dur = hrs > 0 ? `${hrs}h ${mins}m ${secs}s` : `${mins}m ${secs}s`;
+    const dateStr = replay.metadata?.date
+      ? new Date(replay.metadata.date).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+      : '';
     app.innerHTML = `
       <div id="drop-zone">
         <h2>${gi.map} - ${gi.gameMode}</h2>
         <div class="game-details" style="justify-content: center; margin: 8px 0;">
+          ${dateStr ? `<span>Date: ${dateStr}</span>` : ''}
           <span>ID: ${gi.id}</span>
           <span>Cards: ${gi.cardType}</span>
           <span>Dice: ${gi.dice}</span>
           <span>Fog: ${gi.fog ? 'Yes' : 'No'}</span>
           <span>Blizzards: ${gi.blizzards ? 'Yes' : 'No'}</span>
+          <span>Portals: ${gi.portals || 'No'}</span>
           <span>Duration: ${dur}</span>
         </div>
         <p style="margin: 8px 0; color: #f0a050;">Unsupported map — rendering is not available.</p>

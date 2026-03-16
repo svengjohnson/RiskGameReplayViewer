@@ -126,10 +126,20 @@ function computeVisibleTerritories(mapState, connections, playerId, alliances) {
     }
   }
 
+  // Collect active portals
+  const activePortals = [];
+  for (const [name, terr] of Object.entries(mapState)) {
+    if (terr.isPortal && terr.isActivePortal) activePortals.push(name);
+  }
+
   for (const name of ownedByFriendly) {
     const conns = connections[name];
     if (conns) {
       for (const neighbor of conns) visible.add(neighbor);
+    }
+    // Active portals connect to all other active portals
+    if (mapState[name]?.isPortal && mapState[name]?.isActivePortal) {
+      for (const portal of activePortals) visible.add(portal);
     }
   }
 
@@ -376,6 +386,8 @@ function getReplayMeta(gameId) {
       duration: formatDuration(gi.gameDuration),
       rounds,
       players,
+      portals: gi.portals || null,
+      date: data.metadata?.date || null,
       playedBy: localPlayer?.name || null,
       hostedBy: hostPlayer?.name || null,
     };
@@ -396,6 +408,11 @@ app.get('*', (req, res) => {
 
   const title = `${meta.map} · ${meta.gameMode} · ${meta.cardType}`;
   const lines = [`${meta.players.length} players · ${meta.rounds} rounds · ${meta.duration}`];
+  if (meta.portals) lines.push(`Portals: ${meta.portals}`);
+  if (meta.date) {
+    const d = new Date(meta.date);
+    lines.push(`Date: ${d.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short', timeZoneName: 'short' })}`);
+  }
   if (meta.playedBy) lines.push(`Played By: ${meta.playedBy}`);
   if (meta.hostedBy) lines.push(`Hosted By: ${meta.hostedBy}`);
   lines.push(meta.players.join(', '));

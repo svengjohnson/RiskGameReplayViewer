@@ -209,6 +209,8 @@ export class MapRenderer {
   svg!: SVGSVGElement;
   territoryElements: Map<string, SVGElement> = new Map();
   capitalBoxes: Map<string, SVGRectElement> = new Map();
+  portalCircles: Map<string, SVGCircleElement> = new Map();
+  portalOutlines: Map<string, SVGCircleElement> = new Map();
   continentHeldBorders: Map<string, { group: SVGGElement; flood: SVGElement }> = new Map();
   continentGroup!: SVGGElement;
   unitElements: Map<string, SVGTextElement> = new Map();
@@ -640,6 +642,31 @@ export class MapRenderer {
       this.capitalBoxes.set(name, capBox);
       this.labelAnchors.set(name, { x: anchor.x, unitY, boxPad, boxH });
 
+      // Portal circle (ring around troop number area) — black outline + colored stroke
+      const portalR = boxH / 2 + 6;
+      const portalOutline = document.createElementNS(SVG_NS, 'circle');
+      portalOutline.setAttribute('cx', String(anchor.x));
+      portalOutline.setAttribute('cy', String(unitY - boxPad + boxH / 2));
+      portalOutline.setAttribute('r', String(portalR));
+      portalOutline.setAttribute('fill', 'none');
+      portalOutline.setAttribute('stroke', '#000');
+      portalOutline.setAttribute('stroke-width', '7');
+      portalOutline.setAttribute('display', 'none');
+      portalOutline.style.pointerEvents = 'none';
+      this.overlayGroup.appendChild(portalOutline);
+      this.portalOutlines.set(name, portalOutline);
+
+      const portalCircle = document.createElementNS(SVG_NS, 'circle');
+      portalCircle.setAttribute('cx', String(anchor.x));
+      portalCircle.setAttribute('cy', String(unitY - boxPad + boxH / 2));
+      portalCircle.setAttribute('r', String(portalR));
+      portalCircle.setAttribute('fill', 'none');
+      portalCircle.setAttribute('stroke-width', '4');
+      portalCircle.setAttribute('display', 'none');
+      portalCircle.style.pointerEvents = 'none';
+      this.overlayGroup.appendChild(portalCircle);
+      this.portalCircles.set(name, portalCircle);
+
       // Unit count — vertically centered in the capital box area
       const boxCenterY = unitY - boxPad + boxH / 2;
       const unitText = document.createElementNS(SVG_NS, 'text');
@@ -998,6 +1025,10 @@ export class MapRenderer {
       const boxCenterY = newUnitY - anchor.boxPad + anchor.boxH / 2;
       if (unitText) unitText.setAttribute('y', String(boxCenterY));
       if (capBox) capBox.setAttribute('y', String(newUnitY - anchor.boxPad));
+      const portalCircle = this.portalCircles.get(name);
+      if (portalCircle) portalCircle.setAttribute('cy', String(boxCenterY));
+      const portalOutline = this.portalOutlines.get(name);
+      if (portalOutline) portalOutline.setAttribute('cy', String(boxCenterY));
     }
   }
 
@@ -1043,6 +1074,9 @@ export class MapRenderer {
       const snap = flat[state.currentSnapshotIndex];
       if (snap?.snapshot.type === 'territory') {
         for (const [name, t] of Object.entries(snap.snapshot.territories)) {
+          // Skip if only portal state changed (no troop or ownership change)
+          const hasRealChange = t.previouslyOwnedBy !== undefined || t.previousUnits !== undefined;
+          if (!hasRealChange) continue;
           changedTerritories.set(name, {
             prevUnits: t.previousUnits,
             conquered: t.previouslyOwnedBy !== undefined,
@@ -1078,6 +1112,25 @@ export class MapRenderer {
         syncDuplicates('url(#pattern-fog)');
         const capBox = this.capitalBoxes.get(name);
         if (capBox) capBox.setAttribute('display', 'none');
+        // Portals are visible through fog (but not troops/owner)
+        const portalCircle = this.portalCircles.get(name);
+        const portalOutline = this.portalOutlines.get(name);
+        if (portalCircle) {
+          if (terr.isPortal) {
+            portalCircle.setAttribute('display', 'inline');
+            if (portalOutline) portalOutline.setAttribute('display', 'inline');
+            if (terr.isActivePortal) {
+              portalCircle.setAttribute('stroke', '#00ff88');
+              portalCircle.setAttribute('filter', 'drop-shadow(0 0 5px #00ff88)');
+            } else {
+              portalCircle.setAttribute('stroke', '#ff6666');
+              portalCircle.setAttribute('filter', 'drop-shadow(0 0 5px #ff4444)');
+            }
+          } else {
+            portalCircle.setAttribute('display', 'none');
+            if (portalOutline) portalOutline.setAttribute('display', 'none');
+          }
+        }
         const unitEl = this.unitElements.get(name);
         if (unitEl) { unitEl.textContent = '?'; unitEl.setAttribute('opacity', '0.5'); }
         const nameLabel = this.nameLabels.get(name);
@@ -1103,6 +1156,26 @@ export class MapRenderer {
             capBox.setAttribute('stroke', brightenColor(color, 0.5));
           } else {
             capBox.setAttribute('display', 'none');
+          }
+        }
+
+        // Portal: circle around troop number with black outline
+        const portalCircle = this.portalCircles.get(name);
+        const portalOutline = this.portalOutlines.get(name);
+        if (portalCircle) {
+          if (terr.isPortal) {
+            portalCircle.setAttribute('display', 'inline');
+            if (portalOutline) portalOutline.setAttribute('display', 'inline');
+            if (terr.isActivePortal) {
+              portalCircle.setAttribute('stroke', '#00ff88');
+              portalCircle.setAttribute('filter', 'drop-shadow(0 0 5px #00ff88)');
+            } else {
+              portalCircle.setAttribute('stroke', '#ff6666');
+              portalCircle.setAttribute('filter', 'drop-shadow(0 0 5px #ff4444)');
+            }
+          } else {
+            portalCircle.setAttribute('display', 'none');
+            if (portalOutline) portalOutline.setAttribute('display', 'none');
           }
         }
 

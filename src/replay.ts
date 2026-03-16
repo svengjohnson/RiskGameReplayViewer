@@ -30,6 +30,16 @@ export interface FlatSnapshot {
   snapshot: import('./types').Snapshot;
 }
 
+/** Check if a territory snapshot only contains portal state changes (no ownership/unit changes) */
+function isPortalOnlySnapshot(snap: import('./types').Snapshot): boolean {
+  if (snap.type !== 'territory') return false;
+  for (const t of Object.values(snap.territories)) {
+    if (t.previouslyOwnedBy !== undefined) return false;
+    if (t.previousUnits !== undefined && t.previousUnits !== t.units) return false;
+  }
+  return true;
+}
+
 export function getFlatSnapshots(state: ReplayState): FlatSnapshot[] {
   const round = state.replay.roundInfo[String(state.currentRound)];
   if (!round?.playerTurns) return [];
@@ -44,7 +54,9 @@ export function getFlatSnapshots(state: ReplayState): FlatSnapshot[] {
       });
     }
   }
-  return flat;
+
+  // Remove portal-only snapshots (portal state changes shown at next round start)
+  return flat.filter(s => !isPortalOnlySnapshot(s.snapshot));
 }
 
 /** Compute the map state at a given round + snapshot position */
@@ -62,17 +74,19 @@ export function computeStateAt(
   }
 
   // Apply snapshots in order up to snapshotPosition
+  // Portal state (isPortal/isActivePortal) is preserved from round start — changes deferred to next round
   let idx = 0;
   for (const [, turn] of Object.entries(roundData.playerTurns)) {
     for (const snap of turn.snapshots) {
+      if (isPortalOnlySnapshot(snap)) continue;
       if (idx > snapshotPosition) return { mapState, alliances };
       if (snap.type === 'territory') {
         for (const [name, terr] of Object.entries(snap.territories)) {
           mapState[name] = {
             ownedBy: terr.ownedBy,
             isCapital: terr.isCapital,
-            isPortal: terr.isPortal,
-            isActivePortal: terr.isActivePortal,
+            isPortal: mapState[name]?.isPortal ?? terr.isPortal,
+            isActivePortal: mapState[name]?.isActivePortal ?? terr.isActivePortal,
             units: terr.units,
           };
         }

@@ -572,6 +572,8 @@ export function buildTimeline(
           const prevComputed = computeStateAt(state.replay, state.currentRound, state.currentSnapshotIndex - 1);
 
           for (const [name, t] of Object.entries(snap.snapshot.territories)) {
+            // Skip portal-only changes (no ownership or unit change)
+            if (t.previouslyOwnedBy === undefined && (t.previousUnits === undefined || t.previousUnits === t.units)) continue;
             if (t.previouslyOwnedBy !== undefined) {
               const connections = mapDef.territories[name]?.connections ?? [];
               attacks.push(describeAttack(name, t, snap.snapshot.territories, connections, prevComputed.mapState));
@@ -594,8 +596,10 @@ export function buildTimeline(
 
           if (attacks.length > 0) {
             desc = attacks.join(' | ');
-          } else {
+          } else if (placements.length > 0) {
             desc = 'Placed troops: ' + placements.join(', ');
+          } else {
+            desc = 'Portals changed';
           }
         } else if (snap.snapshot.type === 'player_killed') {
           const killedId = String(snap.snapshot.player.id);
@@ -753,16 +757,21 @@ export function buildGameInfo(container: HTMLElement, replay: ReplayFile): void 
   const durationStr = hrs > 0
     ? `${hrs}h ${mins}m ${secs}s`
     : `${mins}m ${secs}s`;
+  const dateStr = replay.metadata?.date
+    ? new Date(replay.metadata.date).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+    : '';
   container.innerHTML = `
     <div class="game-info">
       <div class="game-info-left">
         <h2>${gi.map} - ${gi.gameMode}</h2>
         <div class="game-details">
+          ${dateStr ? `<span>Date: ${dateStr}</span>` : ''}
           <span>ID: ${gi.id}</span>
           <span>Cards: ${gi.cardType}</span>
           <span>Dice: ${gi.dice}</span>
           <span>Fog: ${gi.fog ? 'Yes' : 'No'}</span>
           <span>Blizzards: ${gi.blizzards ? 'Yes' : 'No'}</span>
+          <span>Portals: ${gi.portals || 'No'}</span>
           <span>Duration: ${durationStr}</span>
         </div>
       </div>
@@ -819,6 +828,8 @@ export function generateBattleLog(replay: ReplayFile, mapDef: MapDefinition): st
           const placements: string[] = [];
 
           for (const [name, t] of Object.entries(snap.territories)) {
+            // Skip portal-only changes (no ownership or unit change)
+            if (t.previouslyOwnedBy === undefined && (t.previousUnits === undefined || t.previousUnits === t.units)) continue;
             if (t.previouslyOwnedBy !== undefined) {
               const connections = mapDef.territories[name]?.connections ?? [];
               attacks.push(describeAttack(name, t, snap.territories, connections, prevMapState));

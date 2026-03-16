@@ -40,12 +40,26 @@ export function computeVisibleTerritories(
     }
   }
 
+  // Collect active portals for portal-to-portal visibility
+  const activePortals: string[] = [];
+  for (const [name, terr] of Object.entries(mapState)) {
+    if (terr.isPortal && terr.isActivePortal) {
+      activePortals.push(name);
+    }
+  }
+
   // Add neighbors of all friendly territories
   for (const name of ownedByFriendly) {
     const def = mapDef.territories[name];
     if (def) {
       for (const neighbor of def.connections) {
         visible.add(neighbor);
+      }
+    }
+    // Active portals connect to all other active portals
+    if (mapState[name]?.isPortal && mapState[name]?.isActivePortal) {
+      for (const portal of activePortals) {
+        visible.add(portal);
       }
     }
   }
