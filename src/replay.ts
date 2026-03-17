@@ -40,17 +40,23 @@ function isPortalOnlySnapshot(snap: import('./types').Snapshot): boolean {
   return true;
 }
 
-/** Detect manual placement: round 0 where multiple players' snapshots are interleaved by time */
+/** Detect manual placement: round 0 where multiple players' territory snapshots are interleaved by time */
 export function isManualPlacementRound(round: import('./types').RoundData): boolean {
   if (!round?.playerTurns) return false;
   const entries = Object.entries(round.playerTurns);
   if (entries.length < 2) return false;
-  // Check if first snapshot times are interleaved (player 2's first snap is between player 1's first and second)
-  const firstTimes = entries.map(([, turn]) => turn.snapshots[0]?.time ?? 0);
-  const secondTime = entries[0][1].snapshots[1]?.time;
-  if (secondTime == null) return false;
-  // If any other player's first snapshot is before player 1's second, it's interleaved
-  return firstTimes.some((t, i) => i > 0 && t < secondTime);
+  // Get first territory snapshot time per player
+  const firstTerrTimes: number[] = [];
+  for (const [, turn] of entries) {
+    const first = turn.snapshots.find(s => s.type === 'territory');
+    firstTerrTimes.push(first?.time ?? Infinity);
+  }
+  // Get second territory snapshot time for first player
+  const p1Terrs = entries[0][1].snapshots.filter(s => s.type === 'territory');
+  const secondTerrTime = p1Terrs[1]?.time;
+  if (secondTerrTime == null) return false;
+  // If any other player's first territory snap is before player 1's second, it's interleaved
+  return firstTerrTimes.some((t, i) => i > 0 && t < secondTerrTime);
 }
 
 /** Build flat snapshot list, optionally sorted by time for manual placement */
