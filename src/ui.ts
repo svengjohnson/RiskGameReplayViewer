@@ -236,8 +236,16 @@ export function updatePlayerPanel(container: HTMLElement, state: ReplayState, ma
     setStat('units', `Troops: ${live.units}`);
     setStat('capitals', `Capitals: ${live.capitals}`);
 
-    const turn = roundData.playerTurns?.[id];
-    setStat('income', `Income: ${turn?.income ?? '-'}`);
+    // Compute income from live map state so it updates after each snapshot
+    let incomeDisplay: string;
+    if (live.territories > 0) {
+      const heldContinents = getHeldContinents(state, mapDef);
+      const continentBonus = (heldContinents[id] ?? []).reduce((sum, c) => sum + c.bonus, 0);
+      incomeDisplay = `${Math.max(3, Math.floor(live.territories / 3)) + continentBonus + live.capitals * 2}`;
+    } else {
+      incomeDisplay = '-';
+    }
+    setStat('income', `Income: ${incomeDisplay}`);
 
     // Cards
     const cards = playerCards[id] ?? playerState.cards;
