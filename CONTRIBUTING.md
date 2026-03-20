@@ -4,7 +4,7 @@
 
 Each map lives in `src/maps/<MapName>/` and consists of an SVG file and a TypeScript definition. Here's a step-by-step guide.
 
-For a real-world example, see the commit that added Europe Advanced: [de68283](https://github.com/svengjohnson/RiskGameReplayViewer/commit/de682835dcfa99df0164bda5beecc5e014acfad4).
+For a real-world example, see the commit that added SMG Spaceport: [b162f15](https://github.com/svengjohnson/RiskGameReplayViewer/commit/b162f15bf456cd02cae021bdd4eb758e9485c3fa).
 
 ### 1. Prepare the SVG
 
@@ -106,7 +106,7 @@ Load a replay file that uses your map. Check that:
 | `duplicates` | `Record<string, string[]>` | No | Maps a territory name to extra SVG element IDs for wrap-around rendering |
 | `renderConnectionDots` | `boolean` | No | Show auto-generated dots on shared borders (default: `true`). Disable if using manual SVG indicators. |
 | `renderConnectionLines` | `boolean` | No | Show auto-generated dashed lines for non-adjacent connections (default: `true`). Disable if using manual SVG indicators. |
-| `cardLabels` | `Record<string, string>` | No | Map card codes to display names. Defaults: `A` = Infantry, `B` = Cavalry, `C` = Artillery, `wild` = Wild |
+| `cardLabels` | `Record<string, string>` | Yes | Map card codes to display names (e.g., `{ A: 'Infantry', B: 'Cavalry', C: 'Artillery' }`) |
 | `backgroundUrl` | `string` | No | URL to a background image for the map. If not set, a flat dark background is used. |
 
 ## Tips
